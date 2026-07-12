@@ -169,7 +169,7 @@ Häufige Probleme und deren schnelle Lösung:
 ## ⚠️ Bekannte Limitierungen
 
 * **Single-Threaded Hardware Queue:** Es werden aktuell keine parallelen Servo-Befehle unterstützt, sie werden seriell über den Bus abgearbeitet.
-* **Kalibrierungsverlust:** Nach einem Power-Cycle (Strom aus) muss neu kalibriert werden. Eine Persistenz im EEPROM ist derzeit nicht aktiv.
+* **Positionsverschiebung bei manueller Drehung im ausgeschalteten Zustand:** Nach einem Power-Cycle (Strom aus der Hardware) stellt die Software den Nullpunkt über `calculate_reboot_offset` automatisch wieder her. Dies funktioniert zuverlässig, solange die Motoren im ausgeschalteten Zustand nicht manuell um mehr als 180 Grad (2048 Ticks) verdreht werden. In diesem Fall kann es zu einem Versatz um Vielfache von 360° kommen.
 * **Real-Time Garantien:** Da Python und Tkinter nicht echtzeitfähig sind, gibt es keine harten Timing-Garantien für exakte Mikrosekunden-Latenzen.
 
 ---
