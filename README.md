@@ -8,7 +8,6 @@
 
 **RobotHand** ist ein Tool zur Steuerung einer elastischen, kraftgesteuerten Roboterhand über **Dynamixel XL330-M288** Servomotoren. Die Software wurde primär für das Projekt „Soft!-robotic Hands" (SoSe 2026) entwickelt, um Forschern und Studenten die Evaluierung von nachgiebigen Greifern zu erleichtern.
 
-![RobotHand GUI Demo](demo.gif) <!-- Platzhalter für ein 5-Sekunden-GIF der GUI -->
 
 ---
 
