@@ -98,13 +98,13 @@ sequenceDiagram
     participant State as Thread-Safe State
     participant HW as Background Thread (Hardware)
     
-    UI->>UI: Zeigt Slider & Graphen an
-    HW->>HW: Wartet auf USB/Serial
+    Note over UI: Zeigt Slider & Graphen an
+    Note over HW: Wartet auf USB/Serial
     
     UI->>HW: User-Klick (via Command Queue)
-    HW->>HW: Sendet Befehl an Motor
+    Note over HW: Sendet Befehl an Motor
     
-    HW->>HW: Pollt permanent Telemetrie
+    Note over HW: Pollt permanent Telemetrie
     HW->>State: Schreibt aktuelle Sensorwerte
     State-->>UI: UI liest Daten & zeichnet neu
 ```
