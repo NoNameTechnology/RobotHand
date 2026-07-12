@@ -60,9 +60,9 @@ class ToolTip:
         tw.wm_overrideredirect(True)
         tw.wm_geometry(f"+{x}+{y}")
         label = tk.Label(tw, text=self.text, justify='left',
-                         background="#333333", foreground="#ffffff", relief='solid', borderwidth=1,
+                         background="#1e1e38", foreground="#e2e8f0", relief='solid', borderwidth=1,
                          font=("Segoe UI", 9, "normal"))
-        label.pack(ipadx=4, ipady=4)
+        label.pack(ipadx=6, ipady=5)
 
     def leave(self, event=None):
         if self.tooltip_window:
@@ -107,7 +107,7 @@ class DynamixelSquadApp:
         # Motor Names (Feature 9)
         self.motor_names = {dxl_id: f"Motor {dxl_id}" for dxl_id in MOTOR_IDS}
         
-        self.motor_colors = ["#f38ba8", "#a6e3a1", "#89b4fa", "#f9e2af", "#cba6f7"]
+        self.motor_colors = ["#fb7185", "#6ee7b7", "#818cf8", "#fbbf24", "#c084fc"]
         
         # Soft-Grip (Feature 6)
         self.soft_grip_global = tk.BooleanVar(value=False)
@@ -169,20 +169,20 @@ class DynamixelSquadApp:
         except:
             pass
             
-        self.BG_COLOR = "#1e1e2e"
-        self.FG_COLOR = "#cdd6f4"
-        self.ACCENT_BLUE = "#89b4fa"
-        self.ACCENT_GREEN = "#a6e3a1"
-        self.ACCENT_RED = "#f38ba8"
-        self.ACCENT_YELLOW = "#f9e2af"
-        self.ACCENT_PEACH = "#fab387"
-        self.PANEL_BG = "#313244"
-        self.SURFACE_BG = "#45475a"
-        self.SUBTEXT = "#a6adc8"
+        self.BG_COLOR = "#0c0c14"
+        self.FG_COLOR = "#e2e8f0"
+        self.ACCENT_BLUE = "#818cf8"
+        self.ACCENT_GREEN = "#6ee7b7"
+        self.ACCENT_RED = "#fb7185"
+        self.ACCENT_YELLOW = "#fbbf24"
+        self.ACCENT_PEACH = "#f59e6b"
+        self.PANEL_BG = "#141424"
+        self.SURFACE_BG = "#1e1e38"
+        self.SUBTEXT = "#94a3b8"
         
         self.root.configure(bg=self.BG_COLOR)
         
-        self.style.configure(".", background=self.BG_COLOR, foreground=self.FG_COLOR, font=("Segoe UI", 10))
+        self.style.configure(".", background=self.BG_COLOR, foreground=self.FG_COLOR, font=("Segoe UI", 11))
         self.style.configure("TLabel", background=self.BG_COLOR, foreground=self.FG_COLOR)
         self.style.configure("Panel.TLabel", background=self.PANEL_BG, foreground=self.FG_COLOR)
         self.style.configure("Panel.TFrame", background=self.PANEL_BG)
@@ -190,29 +190,29 @@ class DynamixelSquadApp:
         self.style.configure("TFrame", background=self.BG_COLOR)
         
         self.style.configure("TLabelframe", background=self.PANEL_BG, foreground=self.ACCENT_BLUE,
-                             borderwidth=1, font=("Segoe UI", 10, "bold"))
+                             borderwidth=0, font=("Segoe UI", 10, "bold"))
         self.style.configure("TLabelframe.Label", background=self.PANEL_BG, foreground=self.ACCENT_BLUE)
         
         self.style.configure("TButton", background=self.SURFACE_BG, foreground=self.FG_COLOR,
-                             borderwidth=0, padding=4, font=("Segoe UI", 9))
+                             borderwidth=0, padding=(10, 5), font=("Segoe UI", 9))
         self.style.map("TButton", background=[("active", self.ACCENT_BLUE)],
-                       foreground=[("active", "#1e1e2e")])
+                       foreground=[("active", "#0c0c14")])
         
-        self.style.configure("Primary.TButton", background=self.ACCENT_BLUE, foreground="#1e1e2e",
+        self.style.configure("Primary.TButton", background=self.ACCENT_BLUE, foreground="#0c0c14",
                              font=("Segoe UI", 9, "bold"))
-        self.style.map("Primary.TButton", background=[("active", "#74c7ec")])
+        self.style.map("Primary.TButton", background=[("active", "#a5b4fc")])
         
-        self.style.configure("Danger.TButton", background=self.ACCENT_RED, foreground="#1e1e2e",
+        self.style.configure("Danger.TButton", background=self.ACCENT_RED, foreground="#0c0c14",
                              font=("Segoe UI", 9, "bold"))
-        self.style.map("Danger.TButton", background=[("active", "#eba0ac")])
+        self.style.map("Danger.TButton", background=[("active", "#fda4af")])
         
-        self.style.configure("Success.TButton", background=self.ACCENT_GREEN, foreground="#1e1e2e",
+        self.style.configure("Success.TButton", background=self.ACCENT_GREEN, foreground="#0c0c14",
                              font=("Segoe UI", 9, "bold"))
-        self.style.map("Success.TButton", background=[("active", "#94e2d5")])
+        self.style.map("Success.TButton", background=[("active", "#86efac")])
         
         self.style.configure("Toggle.TButton", background=self.SURFACE_BG, foreground=self.SUBTEXT,
                              font=("Segoe UI", 9))
-        self.style.configure("ToggleOn.TButton", background=self.ACCENT_GREEN, foreground="#1e1e2e",
+        self.style.configure("ToggleOn.TButton", background=self.ACCENT_GREEN, foreground="#0c0c14",
                              font=("Segoe UI", 9, "bold"))
         
         self.style.configure("TCheckbutton", background=self.BG_COLOR, foreground=self.FG_COLOR)
@@ -233,7 +233,7 @@ class DynamixelSquadApp:
         
         # --- MAIN HORIZONTAL SPLIT (2/3 left, 1/3 right) ---
         self.paned = tk.PanedWindow(self.root, orient=tk.HORIZONTAL, bg=self.BG_COLOR,
-                               sashwidth=4, sashrelief=tk.FLAT, bd=0)
+                               sashwidth=2, sashrelief=tk.FLAT, bd=0)
         self.paned.pack(fill=tk.BOTH, expand=True)
         
         # ===== LEFT PANEL (2/3) — Scrollable =====
@@ -294,13 +294,13 @@ class DynamixelSquadApp:
         self.lbl_status.pack(side=tk.LEFT, padx=15)
         
         # Global Soft-Grip Toggle
-        self.btn_soft_grip_global = ttk.Button(status_row1, text="🤏 Soft-Grip: AUS",
+        self.btn_soft_grip_global = ttk.Button(status_row1, text="🤏 Soft-Grip: OFF",
                                                 command=self.toggle_soft_grip_global, style="Toggle.TButton")
         self.btn_soft_grip_global.pack(side=tk.LEFT, padx=15)
         create_tooltip(self.btn_soft_grip_global,
                        "Aktiviert Soft-Grip für ALLE Motoren.\nBei Kontakt hält der Motor automatisch an.")
         
-        self.btn_quit = ttk.Button(status_row1, text="❌ Beenden",
+        self.btn_quit = ttk.Button(status_row1, text="❌ Exit",
                                    command=self.safe_quit, style="Danger.TButton")
         self.btn_quit.pack(side=tk.RIGHT, padx=5)
         create_tooltip(self.btn_quit, "Schließt das Programm sicher und schaltet Motoren ab.")
@@ -319,12 +319,12 @@ class DynamixelSquadApp:
         status_row2 = ttk.Frame(conn_frame)
         status_row2.pack(fill=tk.X, pady=(4, 0))
         
-        self.btn_scan = ttk.Button(status_row2, text="Scan Motoren",
+        self.btn_scan = ttk.Button(status_row2, text="Scan Motors",
                                    command=self.auto_scan_motors, style="TButton")
         self.btn_scan.pack(side=tk.LEFT, padx=5)
         create_tooltip(self.btn_scan, "Scannt den Bus nach vorhandenen Motoren (ID 0-20).")
 
-        self.btn_theme = ttk.Button(status_row2, text="Light Mode",
+        self.btn_theme = ttk.Button(status_row2, text="☀ Light",
                                     command=self.toggle_theme, style="TButton")
         self.btn_theme.pack(side=tk.LEFT, padx=5)
         create_tooltip(self.btn_theme, "Wechselt zwischen Dark Mode und Light Mode.")
@@ -340,7 +340,7 @@ class DynamixelSquadApp:
 
 
 
-        master_frame = ttk.LabelFrame(left_frame, text=" Master Broadcast (Wirkt auf 'Sync' Motoren) ",
+        master_frame = ttk.LabelFrame(left_frame, text=" Master Broadcast (Sync Motors) ",
                                       padding="10")
         master_frame.pack(fill=tk.X, pady=(0, 8))
 
@@ -379,13 +379,13 @@ class DynamixelSquadApp:
         for idx, dxl_id in enumerate(MOTOR_IDS):
             # Motor Card
             motor_card = tk.Frame(indiv_frame, bg=self.PANEL_BG, highlightbackground=self.SURFACE_BG,
-                                  highlightthickness=1)
-            motor_card.pack(fill=tk.X, pady=3, padx=2)
+                                  highlightthickness=0)
+            motor_card.pack(fill=tk.X, pady=4, padx=4)
             self.motor_cards[dxl_id] = motor_card
             
             # ---- ROW 1: Name + Checkboxes + Calibration + Status ----
             row1 = tk.Frame(motor_card, bg=self.PANEL_BG)
-            row1.pack(fill=tk.X, padx=8, pady=(6, 2))
+            row1.pack(fill=tk.X, padx=10, pady=(8, 3))
             
             # Motor Name (editable via double-click)
             accent_color = motor_colors[idx % len(motor_colors)]
@@ -394,7 +394,7 @@ class DynamixelSquadApp:
             
             name_lbl = tk.Label(name_frame, text=self.motor_names[dxl_id],
                                 bg=self.PANEL_BG, fg=accent_color,
-                                font=("Segoe UI", 10, "bold"), anchor="w", cursor="hand2",
+                                font=("Segoe UI", 11, "bold"), anchor="w", cursor="hand2",
                                 width=12)
             name_lbl.pack(fill=tk.BOTH, expand=True)
             name_lbl.bind("<Double-Button-1>", lambda e, did=dxl_id: self.start_name_edit(did))
@@ -405,7 +405,7 @@ class DynamixelSquadApp:
             
             # ID Badge
             id_lbl = tk.Label(row1, text=f"#{dxl_id}", bg=self.SURFACE_BG, fg=self.SUBTEXT,
-                              font=("Segoe UI", 8), padx=4, pady=1)
+                              font=("Segoe UI", 8), padx=6, pady=2)
             id_lbl.pack(side=tk.LEFT, padx=(0, 6))
             create_tooltip(id_lbl, f"Dynamixel ID: {dxl_id}")
             
@@ -431,7 +431,7 @@ class DynamixelSquadApp:
             m_var = tk.BooleanVar(value=True)  # Default to Endlos until calibrated
             self.mode_vars[dxl_id] = m_var
             chk_m = ttk.Checkbutton(
-                row1, text="Endlos", variable=m_var,
+                row1, text="Endless", variable=m_var,
                 command=lambda id=dxl_id: self.on_mode_toggle(id), state=tk.DISABLED,
                 style="Panel.TCheckbutton"
             )
@@ -472,7 +472,7 @@ class DynamixelSquadApp:
             
             # Status Info (right side of row 1)
             tk.Frame(row1, bg=self.SURFACE_BG, width=1).pack(side=tk.LEFT, fill=tk.Y, padx=4, pady=2)
-            contact_lbl = tk.Label(row1, text="● Kein Kontakt", bg=self.PANEL_BG,
+            contact_lbl = tk.Label(row1, text="● No Contact", bg=self.PANEL_BG,
                                    fg=self.SUBTEXT, font=("Segoe UI", 9), width=14, anchor="w")
             contact_lbl.pack(side=tk.LEFT, padx=2)
             self.contact_labels[dxl_id] = contact_lbl
@@ -504,7 +504,7 @@ class DynamixelSquadApp:
 
             # ---- ROW 2: Position Slider ----
             row2 = tk.Frame(motor_card, bg=self.PANEL_BG)
-            row2.pack(fill=tk.X, padx=8, pady=(2, 2))
+            row2.pack(fill=tk.X, padx=10, pady=(3, 3))
             
             # Position Slider
             tk.Label(row2, text="Pos:", bg=self.PANEL_BG, fg=self.SUBTEXT,
@@ -525,7 +525,7 @@ class DynamixelSquadApp:
             
             # ---- ROW 3: Current Limit Slider ----
             row3 = tk.Frame(motor_card, bg=self.PANEL_BG)
-            row3.pack(fill=tk.X, padx=8, pady=(2, 6))
+            row3.pack(fill=tk.X, padx=10, pady=(3, 8))
             
             # Current Limit Slider
             lbl_m = tk.Label(row3, text="mA:", bg=self.PANEL_BG, fg=self.SUBTEXT,
@@ -556,7 +556,7 @@ class DynamixelSquadApp:
         # =====================================================
         # RIGHT SIDE
         # ========        # ----- POSEN BIBLIOTHEK -----
-        poses_frame = ttk.LabelFrame(self.right_frame, text=" Posen Bibliothek ", padding="8")
+        poses_frame = ttk.LabelFrame(self.right_frame, text=" Pose Library ", padding="8")
         poses_frame.pack(fill=tk.X, pady=(0, 8))
         
         row_p1 = ttk.Frame(poses_frame)
@@ -579,7 +579,7 @@ class DynamixelSquadApp:
         btn_go_pose = ttk.Button(row_p1, text="▶ Go", width=6, command=self.go_to_selected_pose)
         btn_go_pose.pack(side=tk.LEFT, padx=1)
         create_tooltip(btn_go_pose, "Fährt alle synchronisierten Motoren sofort in diese Pose.")
-        btn_add_seq = ttk.Button(row_p1, text="+ Ablauf", width=9, command=self.add_pose_to_sequence)
+        btn_add_seq = ttk.Button(row_p1, text="+ Sequence", width=9, command=self.add_pose_to_sequence)
         btn_add_seq.pack(side=tk.LEFT, padx=1)
         create_tooltip(btn_add_seq, "Fügt diese Pose als neuen Schritt an das Ende des Ablaufs an.")
         btn_del_pose = ttk.Button(row_p1, text="🗑", width=3, command=self._delete_selected_pose, style="Danger.TButton")
@@ -588,7 +588,7 @@ class DynamixelSquadApp:
  
  
         # ----- SEQUENZ EDITOR -----
-        seq_frame = ttk.LabelFrame(self.right_frame, text=" Ablaufsteuerung ", padding="8")
+        seq_frame = ttk.LabelFrame(self.right_frame, text=" Sequence Control ", padding="8")
         seq_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
         
         # Controls row
@@ -614,7 +614,7 @@ class DynamixelSquadApp:
         self.btn_home.pack(side=tk.LEFT, padx=1)
         create_tooltip(self.btn_home, "Fährt alle aktiven Motoren auf ihre Zero-Position zurück.")
         
-        btn_sg_settings = ttk.Button(seq_ctrl, text="⚙ SG-Std", width=9, command=self.open_seq_sg_settings)
+        btn_sg_settings = ttk.Button(seq_ctrl, text="⚙ SG-Def", width=9, command=self.open_seq_sg_settings)
         btn_sg_settings.pack(side=tk.LEFT, padx=1)
         create_tooltip(btn_sg_settings, "Öffnet ein Fenster, um die standardmäßigen Soft-Grip Haken und Kräfte für den Ablauf festzulegen.")
         
@@ -624,7 +624,7 @@ class DynamixelSquadApp:
         
         self.seq_listbox = tk.Listbox(list_container, bg=self.SURFACE_BG, fg=self.FG_COLOR,
                                       borderwidth=0, selectbackground=self.ACCENT_BLUE,
-                                      selectforeground="#1e1e2e", font=("Segoe UI", 9))
+                                      selectforeground="#0c0c14", font=("Segoe UI", 9))
         self.seq_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 4))
         self.seq_listbox.bind("<Button-3>", self.seq_listbox_context_menu)
         create_tooltip(self.seq_listbox, "Liste der Ablaufschritte. Rechtsklick zum Bearbeiten, Duplizieren oder Löschen.")
@@ -657,7 +657,7 @@ class DynamixelSquadApp:
         self.btn_play_seq.pack(side=tk.LEFT, padx=1)
         create_tooltip(self.btn_play_seq, "Startet das Abspielen des aktuellen Ablaufs.")
         
-        self.lbl_seq_status = ttk.Label(seq_play_row1, text="Bereit", width=25,
+        self.lbl_seq_status = ttk.Label(seq_play_row1, text="Ready", width=25,
                                         font=("Segoe UI", 9, "bold"), foreground=self.ACCENT_GREEN)
         self.lbl_seq_status.pack(side=tk.LEFT, padx=5)
         create_tooltip(self.lbl_seq_status, "Zeigt den aktuellen Ausführungsstatus des Ablaufs.")
@@ -670,7 +670,7 @@ class DynamixelSquadApp:
         lbl_name.pack(side=tk.LEFT, padx=1)
         create_tooltip(lbl_name, "Name unter dem der Ablauf gespeichert werden soll.")
         
-        self.seq_name_var = tk.StringVar(value="MeinAblauf")
+        self.seq_name_var = tk.StringVar(value="MySequence")
         entry_seq_name = ttk.Entry(seq_play_row2, textvariable=self.seq_name_var, width=12)
         entry_seq_name.pack(side=tk.LEFT, padx=1)
         create_tooltip(entry_seq_name, "Gib einen Namen ein, um den Ablauf zu speichern.")
@@ -684,7 +684,7 @@ class DynamixelSquadApp:
         self.cb_sequences = ttk.Combobox(seq_play_row2, state="readonly", width=12)
         self.cb_sequences.pack(side=tk.LEFT, padx=1)
         create_tooltip(self.cb_sequences, "Auswahl eines gespeicherten Ablaufs.")
-        btn_load_seq = ttk.Button(seq_play_row2, text="📂 Laden", width=9, command=self.load_selected_sequence)
+        btn_load_seq = ttk.Button(seq_play_row2, text="📂 Load", width=9, command=self.load_selected_sequence)
         btn_load_seq.pack(side=tk.LEFT, padx=1)
         create_tooltip(btn_load_seq, "Lädt den ausgewählten Ablauf in die Liste.")
         btn_del_seq = ttk.Button(seq_play_row2, text="🗑", width=3, command=self._delete_selected_seq, style="Danger.TButton")
@@ -692,10 +692,10 @@ class DynamixelSquadApp:
         create_tooltip(btn_del_seq, "Löscht den aktuell im Dropdown ausgewählten Ablauf.")
 
         # ----- LIVE STROM GRAPH -----
-        graph_frame = ttk.LabelFrame(self.root, text=" Live Strom (Kontakterkennung) ", padding="8")
+        graph_frame = ttk.LabelFrame(self.root, text=" Live Current (Contact Detection) ", padding="8")
         graph_frame.pack(side=tk.BOTTOM, fill=tk.X, expand=False, pady=(5, 5), padx=10, before=self.paned)
         
-        self.canvas = tk.Canvas(graph_frame, bg="#11111b", height=300, highlightthickness=0)
+        self.canvas = tk.Canvas(graph_frame, bg="#08080f", height=250, highlightthickness=0)
         self.canvas.pack(fill=tk.BOTH, expand=True)
         
         legend_frame = ttk.Frame(graph_frame)
@@ -708,7 +708,7 @@ class DynamixelSquadApp:
             ind.pack(side=tk.LEFT, padx=3)
             self.graph_indicators[dxl_id] = {"label": ind, "color": c}
             
-        btn_export = ttk.Button(legend_frame, text="💾 Graph Exportieren", command=self.export_graph_menu, width=18)
+        btn_export = ttk.Button(legend_frame, text="💾 Export Graph", command=self.export_graph_menu, width=18)
         btn_export.pack(side=tk.RIGHT, padx=5)
         create_tooltip(btn_export, "Exportiert die Graphendaten als CSV oder als Bild (PNG).")
 
@@ -832,11 +832,11 @@ class DynamixelSquadApp:
             self.contact_states[dxl_id] = state
             
             if state == "contact":
-                self.contact_labels[dxl_id].config(text="● Kontakt!", fg=self.ACCENT_GREEN)
+                self.contact_labels[dxl_id].config(text="● Contact!", fg=self.ACCENT_GREEN)
             elif state == "approaching":
-                self.contact_labels[dxl_id].config(text="● Annäherung", fg=self.ACCENT_YELLOW)
+                self.contact_labels[dxl_id].config(text="● Approaching", fg=self.ACCENT_YELLOW)
             else:
-                self.contact_labels[dxl_id].config(text="● Kein Kontakt", fg=self.SUBTEXT)
+                self.contact_labels[dxl_id].config(text="● No Contact", fg=self.SUBTEXT)
 
     # =================================================================
     # --- SOFT-GRIP (Feature 6) ---
@@ -855,9 +855,9 @@ class DynamixelSquadApp:
 
     def _update_soft_grip_global_button(self):
         if self.soft_grip_global.get():
-            self.btn_soft_grip_global.config(text="🤏 Soft-Grip: AN", style="ToggleOn.TButton")
+            self.btn_soft_grip_global.config(text="🤏 Soft-Grip: ON", style="ToggleOn.TButton")
         else:
-            self.btn_soft_grip_global.config(text="🤏 Soft-Grip: AUS", style="Toggle.TButton")
+            self.btn_soft_grip_global.config(text="🤏 Soft-Grip: OFF", style="Toggle.TButton")
 
     def on_soft_grip_motor_toggle(self, dxl_id):
         """Toggled Soft-Grip für einen einzelnen Motor"""
@@ -1011,7 +1011,7 @@ class DynamixelSquadApp:
                 self.slider_vars[dxl_id].set(0)
 
     def reset_all_calibration_ui(self):
-        if messagebox.askyesno("Reset All", "Möchtest du wirklich alle Kalibrierungen löschen?"):
+        if messagebox.askyesno("Reset All", "Do you really want to clear all calibrations?"):
             self.reset_all_calibration()
             self.save_calibration(silent=True)
 
@@ -1032,12 +1032,12 @@ class DynamixelSquadApp:
             with open("calibration.json", "w") as f:
                 json.dump(data, f)
             if not silent:
-                messagebox.showinfo("Erfolg", "Kalibrierung erfolgreich gespeichert!")
+                messagebox.showinfo("Success", "Calibration successfully saved!")
         except Exception as e:
             if not silent:
-                messagebox.showerror("Fehler", f"Konnte Kalibrierung nicht speichern:\n{e}")
+                messagebox.showerror("Error", f"Could not save calibration:\n{e}")
             else:
-                print(f"Konnte Kalibrierung nicht speichern: {e}")
+                print(f"Could not save calibration: {e}")
 
     def load_calibration(self):
         if os.path.exists("calibration.json"):
@@ -1107,7 +1107,7 @@ class DynamixelSquadApp:
         name = self.cb_poses.get()
         if not name or name not in self.saved_poses:
             return
-        if messagebox.askyesno("Löschen", f"Möchtest du die Pose '{name}' wirklich löschen?"):
+        if messagebox.askyesno("Delete", f"Do you really want to delete the pose '{name}'?"):
             del self.saved_poses[name]
             with open("poses.json", "w") as f:
                 json.dump(self.saved_poses, f, indent=4)
@@ -1136,7 +1136,7 @@ class DynamixelSquadApp:
     def save_single_pose(self):
         name = self.pose_name_var.get().strip()
         if not name:
-            messagebox.showwarning("Warnung", "Bitte einen Namen für die Pose eingeben!")
+            messagebox.showwarning("Warning", "Please enter a name for the pose!")
             return
         try:
             self.saved_poses[name] = self.get_current_state()
@@ -1144,9 +1144,9 @@ class DynamixelSquadApp:
                 json.dump(self.saved_poses, f)
             self.update_pose_combobox()
             self.cb_poses.set(name)
-            messagebox.showinfo("Erfolg", f"Pose '{name}' gespeichert!")
+            messagebox.showinfo("Success", f"Pose '{name}' saved!")
         except Exception as e:
-            messagebox.showerror("Fehler", f"Konnte Posen nicht speichern:\n{e}")
+            messagebox.showerror("Error", f"Could not save poses:\n{e}")
 
     def go_to_selected_pose(self):
         name = self.cb_poses.get()
@@ -1287,10 +1287,10 @@ class DynamixelSquadApp:
         self.seq_listbox.selection_clear(0, tk.END)
         self.seq_listbox.selection_set(idx)
         menu = tk.Menu(self.root, tearoff=0)
-        menu.add_command(label="Bearbeiten", command=lambda: self.open_step_editor(idx))
-        menu.add_command(label="Duplizieren", command=lambda: self._ctx_duplicate_step(idx))
+        menu.add_command(label="Edit", command=lambda: self.open_step_editor(idx))
+        menu.add_command(label="Duplicate", command=lambda: self._ctx_duplicate_step(idx))
         menu.add_separator()
-        menu.add_command(label="Löschen", command=lambda: self._ctx_delete_step(idx))
+        menu.add_command(label="Delete", command=lambda: self._ctx_delete_step(idx))
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:
@@ -1306,7 +1306,7 @@ class DynamixelSquadApp:
         if 0 <= idx < len(self.sequence_frames):
             import copy
             dup = copy.deepcopy(self.sequence_frames[idx])
-            dup["name"] = dup.get("name", "Step") + " (Kopie)"
+            dup["name"] = dup.get("name", "Step") + " (Copy)"
             self.sequence_frames.insert(idx + 1, dup)
             self._mark_seq_unsaved()
             self.refresh_sequence_listbox()
@@ -1323,7 +1323,7 @@ class DynamixelSquadApp:
         sg_motors = state.get("soft_grip_motors", {})
 
         editor = tk.Toplevel(self.root)
-        editor.title(f"Schritt {step_index + 1} bearbeiten")
+        editor.title(f"Edit Step {step_index + 1}")
         editor.configure(bg=self.BG_COLOR)
         editor.geometry("520x680")
         editor.resizable(True, True)
@@ -1331,7 +1331,7 @@ class DynamixelSquadApp:
         editor.grab_set()
 
         # --- Header ---
-        hdr = tk.Label(editor, text=f"Schritt {step_index + 1}: {frame.get('name', 'Step')}",
+        hdr = tk.Label(editor, text=f"Step {step_index + 1}: {frame.get('name', 'Step')}",
                        bg=self.BG_COLOR, fg=self.ACCENT_BLUE, font=("Segoe UI", 12, "bold"))
         hdr.pack(pady=(10, 5))
 
@@ -1354,21 +1354,21 @@ class DynamixelSquadApp:
         time_row = tk.Frame(sec_time, bg=self.PANEL_BG)
         time_row.pack(fill=tk.X)
 
-        tk.Label(time_row, text="Zeit (ms):", bg=self.PANEL_BG, fg=self.FG_COLOR,
+        tk.Label(time_row, text="Time (ms):", bg=self.PANEL_BG, fg=self.FG_COLOR,
                  font=("Segoe UI", 9)).pack(side=tk.LEFT, padx=(0, 4))
         edit_wait_val = tk.StringVar(value=str(frame.get("wait_val", 1000)))
         tk.Entry(time_row, textvariable=edit_wait_val, width=8, bg=self.SURFACE_BG,
                  fg=self.FG_COLOR, insertbackground=self.FG_COLOR, font=("Segoe UI", 9)).pack(side=tk.LEFT)
 
         # === VELOCITY GLOBAL SECTION ===
-        sec_vel = tk.LabelFrame(content, text="Geschwindigkeit (Global)", bg=self.PANEL_BG, fg=self.ACCENT_BLUE,
+        sec_vel = tk.LabelFrame(content, text="Velocity (Global)", bg=self.PANEL_BG, fg=self.ACCENT_BLUE,
                                 font=("Segoe UI", 10, "bold"), padx=8, pady=6)
         sec_vel.pack(fill=tk.X, pady=5)
         
         vel_row = tk.Frame(sec_vel, bg=self.PANEL_BG)
         vel_row.pack(fill=tk.X)
         
-        tk.Label(vel_row, text="Alle %:", bg=self.PANEL_BG, fg=self.SUBTEXT,
+        tk.Label(vel_row, text="All %:", bg=self.PANEL_BG, fg=self.SUBTEXT,
                  font=("Segoe UI", 9)).pack(side=tk.LEFT, padx=(5, 4))
         
         dxl_vel_values = [velocities.get(str(d), velocities.get(d, 100)) for d in MOTOR_IDS]
@@ -1396,7 +1396,7 @@ class DynamixelSquadApp:
         global_vel_slider.pack(side=tk.RIGHT, padx=4)
 
         # === SOFT-GRIP GLOBAL SECTION ===
-        sec_sg = tk.LabelFrame(content, text="Soft-Close (Global)", bg=self.PANEL_BG, fg=self.ACCENT_BLUE,
+        sec_sg = tk.LabelFrame(content, text="Soft-Grip (Global)", bg=self.PANEL_BG, fg=self.ACCENT_BLUE,
                                font=("Segoe UI", 10, "bold"), padx=8, pady=6)
         sec_sg.pack(fill=tk.X, pady=5)
 
@@ -1404,13 +1404,13 @@ class DynamixelSquadApp:
         sg_row = tk.Frame(sec_sg, bg=self.PANEL_BG)
         sg_row.pack(fill=tk.X)
 
-        tk.Checkbutton(sg_row, text="Soft-Close aktiv", variable=edit_sg_global,
+        tk.Checkbutton(sg_row, text="Soft-Grip active", variable=edit_sg_global,
                        bg=self.PANEL_BG, fg=self.FG_COLOR, selectcolor=self.SURFACE_BG,
                        activebackground=self.PANEL_BG, activeforeground=self.FG_COLOR,
                        font=("Segoe UI", 9)).pack(side=tk.LEFT)
 
         # Global current slider
-        tk.Label(sg_row, text="Alle mA:", bg=self.PANEL_BG, fg=self.SUBTEXT,
+        tk.Label(sg_row, text="All mA:", bg=self.PANEL_BG, fg=self.SUBTEXT,
                  font=("Segoe UI", 9)).pack(side=tk.LEFT, padx=(20, 4))
         global_current_var = tk.IntVar(value=1750)
         global_current_lbl = tk.Label(sg_row, text="1750", bg=self.PANEL_BG, fg=self.ACCENT_PEACH,
@@ -1435,7 +1435,7 @@ class DynamixelSquadApp:
         global_current_slider.pack(side=tk.RIGHT, padx=4)
 
         # === PER-MOTOR SECTION ===
-        sec_motors = tk.LabelFrame(content, text="Motoren (individuell)", bg=self.PANEL_BG, fg=self.ACCENT_BLUE,
+        sec_motors = tk.LabelFrame(content, text="Motors (Individual)", bg=self.PANEL_BG, fg=self.ACCENT_BLUE,
                                    font=("Segoe UI", 10, "bold"), padx=8, pady=6)
         sec_motors.pack(fill=tk.X, pady=5)
 
@@ -1462,12 +1462,12 @@ class DynamixelSquadApp:
                      font=("Segoe UI", 9, "bold")).pack(side=tk.LEFT)
 
             sg_val = sg_motors.get(dxl_str, "default")
-            sg_display = "Ablauf-Standard" if sg_val == "default" else ("Aktiviert" if sg_val is True or sg_val == "True" else "Deaktiviert")
+            sg_display = "Sequence Default" if sg_val == "default" else ("Enabled" if sg_val is True or sg_val == "True" else "Disabled")
             sg_var = tk.StringVar(value=sg_display)
             edit_sg_motors[dxl_str] = sg_var
             
-            tk.Label(r1, text="Soft-Close:", bg=self.SURFACE_BG, fg=self.SUBTEXT, font=("Segoe UI", 8)).pack(side=tk.LEFT, padx=(10, 2))
-            cb_sg = ttk.Combobox(r1, textvariable=sg_var, values=["Ablauf-Standard", "Aktiviert", "Deaktiviert"],
+            tk.Label(r1, text="Soft-Grip:", bg=self.SURFACE_BG, fg=self.SUBTEXT, font=("Segoe UI", 8)).pack(side=tk.LEFT, padx=(10, 2))
+            cb_sg = ttk.Combobox(r1, textvariable=sg_var, values=["Sequence Default", "Enabled", "Disabled"],
                                  width=15, state="readonly", font=("Segoe UI", 8))
             cb_sg.pack(side=tk.LEFT, padx=2)
 
@@ -1514,7 +1514,7 @@ class DynamixelSquadApp:
             cur_var = tk.IntVar(value=slider_val)
             edit_limits[dxl_str] = cur_var
 
-            cur_lbl = tk.Label(r2, text="Standard" if is_def else str(slider_val), bg=self.SURFACE_BG, fg=self.ACCENT_PEACH,
+            cur_lbl = tk.Label(r2, text="Default" if is_def else str(slider_val), bg=self.SURFACE_BG, fg=self.ACCENT_PEACH,
                                font=("Segoe UI", 8, "bold"), width=8)
             cur_lbl.pack(side=tk.RIGHT, padx=4)
             motor_current_labels[dxl_id] = cur_lbl
@@ -1535,13 +1535,13 @@ class DynamixelSquadApp:
                 def toggle():
                     if def_v.get():
                         sl.config(state=tk.DISABLED)
-                        lbl.config(text="Standard")
+                        lbl.config(text="Default")
                     else:
                         sl.config(state=tk.NORMAL)
                         lbl.config(text=str(var.get()))
                 return toggle
                 
-            chk_def = ttk.Checkbutton(r2, text="Standard", variable=ma_def_var, command=make_ma_def_toggle())
+            chk_def = ttk.Checkbutton(r2, text="Default", variable=ma_def_var, command=make_ma_def_toggle())
             chk_def.pack(side=tk.RIGHT, padx=4)
 
             # Row 2b: Velocity slider
@@ -1611,15 +1611,15 @@ class DynamixelSquadApp:
 
                 def make_unlock_cmd(sl=pos_slider, did=dxl_id):
                     def unlock():
-                        if messagebox.askyesno("Warnung",
-                                f"Bist du sicher, dass du die Zielposition von "
-                                f"{self.motor_names.get(did, f'Motor {did}')} ändern willst?\n"
-                                f"Eine falsche Position kann zu Kollisionen führen!",
+                        if messagebox.askyesno("Warning",
+                                f"Are you sure you want to change the target position of "
+                                f"{self.motor_names.get(did, f'Motor {did}')}?\n"
+                                f"An incorrect position can cause collisions!",
                                 parent=editor):
                             sl.config(state=tk.NORMAL)
                     return unlock
 
-                ttk.Button(r3, text="Freigeben", width=8,
+                ttk.Button(r3, text="Unlock", width=8,
                            command=make_unlock_cmd()).pack(side=tk.LEFT, padx=4)
 
         # === BUTTON ROW ===
@@ -1642,9 +1642,9 @@ class DynamixelSquadApp:
             saved_sg_motors = {}
             for k, v in edit_sg_motors.items():
                 val_str = v.get()
-                if val_str == "Ablauf-Standard":
+                if val_str in ("Ablauf-Standard", "Sequence Default"):
                     saved_sg_motors[k] = "default"
-                elif val_str == "Aktiviert":
+                elif val_str in ("Aktiviert", "Enabled"):
                     saved_sg_motors[k] = True
                 else:
                     saved_sg_motors[k] = False
@@ -1679,14 +1679,14 @@ class DynamixelSquadApp:
             self.refresh_sequence_listbox()
             editor.destroy()
 
-        ttk.Button(btn_row, text="Speichern", command=save_edits,
+        ttk.Button(btn_row, text="Save", command=save_edits,
                    style="Success.TButton").pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_row, text="Abbrechen", command=editor.destroy).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_row, text="Cancel", command=editor.destroy).pack(side=tk.LEFT, padx=5)
 
     def save_sequence_to_file(self):
         name = self.seq_name_var.get().strip()
         if not name or not self.sequence_frames:
-            messagebox.showwarning("Warnung", "Ungültiger Name oder Ablauf ist leer!")
+            messagebox.showwarning("Warning", "Invalid name or sequence is empty!")
             return
         self.saved_sequences[name] = {
             "frames": self.sequence_frames,
@@ -1699,9 +1699,9 @@ class DynamixelSquadApp:
             self.update_sequence_combobox()
             self.cb_sequences.set(name)
             self.seq_unsaved_changes = False
-            messagebox.showinfo("Erfolg", f"Ablauf '{name}' gespeichert!")
+            messagebox.showinfo("Success", f"Sequence '{name}' saved!")
         except Exception as e:
-            messagebox.showerror("Fehler", str(e))
+            messagebox.showerror("Error", str(e))
 
     def load_sequences_from_file(self):
         if os.path.exists("sequences.json"):
@@ -1724,7 +1724,7 @@ class DynamixelSquadApp:
         name = self.cb_sequences.get()
         if not name or name not in self.saved_sequences:
             return
-        if messagebox.askyesno("Löschen", f"Möchtest du den Ablauf '{name}' wirklich löschen?"):
+        if messagebox.askyesno("Delete", f"Do you really want to delete sequence '{name}'?"):
             del self.saved_sequences[name]
             with open("sequences.json", "w") as f:
                 json.dump(self.saved_sequences, f, indent=4)
@@ -1733,14 +1733,14 @@ class DynamixelSquadApp:
 
     def open_seq_sg_settings(self):
         win = tk.Toplevel(self.root)
-        win.title("Ablauf Standard-SG Einstellungen")
+        win.title("Sequence Default SG Settings")
         win.configure(bg=self.BG_COLOR)
         win.geometry("450x330")
         win.resizable(False, False)
         win.transient(self.root)
         win.grab_set()
 
-        hdr = tk.Label(win, text="Standard-SG & mA Einstellungen für Ablauf",
+        hdr = tk.Label(win, text="Default SG & mA Settings for Sequence",
                        bg=self.BG_COLOR, fg=self.ACCENT_BLUE, font=("Segoe UI", 11, "bold"))
         hdr.pack(pady=10)
 
@@ -1757,7 +1757,7 @@ class DynamixelSquadApp:
                     pass
                 if c_name == "Label":
                     txt = w.cget("text")
-                    if txt in ("mA:", "Aktiv:"):
+                    if txt in ("mA:", "Active:"):
                         w.config(fg=self.SUBTEXT)
             for child in w.winfo_children():
                 update_bg_recursive(child)
@@ -1771,7 +1771,7 @@ class DynamixelSquadApp:
             lbl_name.pack(side=tk.LEFT)
 
             # Checkbox
-            chk = ttk.Checkbutton(row, text="Aktiv", variable=self.seq_default_sg_vars[dxl_id],
+            chk = ttk.Checkbutton(row, text="Active", variable=self.seq_default_sg_vars[dxl_id],
                                   command=self._mark_seq_unsaved)
             chk.pack(side=tk.LEFT, padx=(10, 5))
 
@@ -1800,7 +1800,7 @@ class DynamixelSquadApp:
 
         update_bg_recursive(main_frame)
 
-        btn_close = ttk.Button(win, text="Schließen", command=win.destroy, width=12)
+        btn_close = ttk.Button(win, text="Close", command=win.destroy, width=12)
         btn_close.pack(pady=10)
 
     def _mark_seq_unsaved(self):
@@ -1825,7 +1825,7 @@ class DynamixelSquadApp:
         # Zentriere über dem Hauptfenster
         dialog.geometry(f"+{self.root.winfo_x() + 100}+{self.root.winfo_y() + 100}")
         
-        lbl_msg = tk.Label(dialog, text="Du hast ungespeicherte Änderungen im Ablauf.\nMöchtest du diese jetzt speichern?",
+        lbl_msg = tk.Label(dialog, text="You have unsaved changes in the sequence.\nWould you like to save them now?",
                            bg=self.BG_COLOR, fg=self.FG_COLOR, font=("Segoe UI", 10))
         lbl_msg.pack(pady=(15, 10))
         
@@ -1834,7 +1834,7 @@ class DynamixelSquadApp:
         
         tk.Label(name_row, text="Name:", bg=self.BG_COLOR, fg=self.SUBTEXT, font=("Segoe UI", 9)).pack(side=tk.LEFT)
         
-        default_name = self.seq_name_var.get().strip() or "MeinAblauf"
+        default_name = self.seq_name_var.get().strip() or "MySequence"
         name_var = tk.StringVar(value=default_name)
         ent_name = ttk.Entry(name_row, textvariable=name_var, font=("Segoe UI", 9))
         ent_name.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
@@ -1847,7 +1847,7 @@ class DynamixelSquadApp:
         def on_save():
             name = name_var.get().strip()
             if not name:
-                messagebox.showwarning("Warnung", "Bitte gib einen Namen ein!", parent=dialog)
+                messagebox.showwarning("Warning", "Please enter a name!", parent=dialog)
                 return
             
             self.seq_name_var.set(name)
@@ -1865,7 +1865,7 @@ class DynamixelSquadApp:
                 result.set("save")
                 dialog.destroy()
             except Exception as e:
-                messagebox.showerror("Fehler", f"Konnte Ablauf nicht speichern:\n{e}", parent=dialog)
+                messagebox.showerror("Error", f"Could not save sequence:\n{e}", parent=dialog)
                 
         def on_discard():
             self.seq_unsaved_changes = False
@@ -1876,13 +1876,13 @@ class DynamixelSquadApp:
             result.set("cancel")
             dialog.destroy()
             
-        btn_save = ttk.Button(btn_frame, text="Speichern", command=on_save, style="Success.TButton", width=11)
+        btn_save = ttk.Button(btn_frame, text="Save", command=on_save, style="Success.TButton", width=11)
         btn_save.pack(side=tk.LEFT, padx=5)
         
-        btn_discard = ttk.Button(btn_frame, text="Verwerfen", command=on_discard, style="Danger.TButton", width=11)
+        btn_discard = ttk.Button(btn_frame, text="Discard", command=on_discard, style="Danger.TButton", width=11)
         btn_discard.pack(side=tk.LEFT, padx=5)
         
-        btn_cancel = ttk.Button(btn_frame, text="Abbrechen", command=on_cancel, width=11)
+        btn_cancel = ttk.Button(btn_frame, text="Cancel", command=on_cancel, width=11)
         btn_cancel.pack(side=tk.LEFT, padx=5)
         
         dialog.wait_window()
@@ -1940,8 +1940,8 @@ class DynamixelSquadApp:
         active_ids = [did for did in MOTOR_IDS if self.ui_sync_checkboxes[did].instate(['selected'])]
         if not self.ensure_torque_enabled(active_ids): return
         self.is_playing = True
-        self.btn_play_seq.config(state=tk.DISABLED, text="▶ Spielt ab...")
-        self.lbl_seq_status.config(text="Status: Initialisiere...")
+        self.btn_play_seq.config(state=tk.DISABLED, text="▶ Playing...")
+        self.lbl_seq_status.config(text="Status: Initializing...")
         self.seq_listbox.selection_clear(0, tk.END)
         self.root.after(0, self._play_step, 0)
 
@@ -1950,7 +1950,7 @@ class DynamixelSquadApp:
             self.is_playing = False
             self.btn_play_seq.config(state=tk.NORMAL,
                                      text=f"▶ Start ({len(self.sequence_frames)})")
-            self.lbl_seq_status.config(text="Status: Bereit")
+            self.lbl_seq_status.config(text="Status: Ready")
             self.seq_listbox.selection_clear(0, tk.END)
             return
 
@@ -1985,7 +1985,7 @@ class DynamixelSquadApp:
         
         elapsed = (time.time() - start_t) * 1000
         rem = max(0, timeout_ms - elapsed)
-        self.lbl_seq_status.config(text=f"Grasp: Warte auf Kontakt ({rem/1000.0:.1f}s Timeout)")
+        self.lbl_seq_status.config(text=f"Grasp: Waiting for contact ({rem/1000.0:.1f}s Timeout)")
         
         if elapsed > timeout_ms:
             self._play_step(step_index + 1)
@@ -2000,7 +2000,7 @@ class DynamixelSquadApp:
                 break
                     
         if all_contact and active_ids:
-            self.lbl_seq_status.config(text="Grasp: Kontakt erkannt! ✓")
+            self.lbl_seq_status.config(text="Grasp: Contact detected! ✓")
             self.root.after(100, self._play_step, step_index + 1)
         else:
             self.root.after(50, self._check_grasp, step_index, active_ids, timeout_ms, start_t)
@@ -2091,7 +2091,7 @@ class DynamixelSquadApp:
         if not self.check_unsaved_sequence_changes():
             return
             
-        if messagebox.askyesno("Beenden", "Möchtest du das Programm wirklich beenden?"):
+        if messagebox.askyesno("Exit", "Do you really want to exit the program?"):
             self._save_window_geometry()
             if self.is_connected:
                 # Schalte Motoren sicher ab
@@ -2124,7 +2124,7 @@ class DynamixelSquadApp:
 
     def auto_scan_motors(self):
         if not self.is_connected:
-            messagebox.showwarning("Nicht verbunden", "Bitte erst verbinden, dann scannen.")
+            messagebox.showwarning("Not Connected", "Please connect first, then scan.")
             return
         
         self.serial_mutex = True
@@ -2137,42 +2137,42 @@ class DynamixelSquadApp:
         
         if found:
             ids_str = ", ".join(str(i) for i in found)
-            messagebox.showinfo("Scan Ergebnis", f"Gefundene Motoren:\n\nIDs: {ids_str}\n\n"
-                                f"Aktuell konfiguriert: {MOTOR_IDS}\n\n"
-                                f"Wenn die IDs nicht übereinstimmen, passe MOTOR_IDS im Code an.")
+            messagebox.showinfo("Scan Result", f"Found motors:\n\nIDs: {ids_str}\n\n"
+                                f"Currently configured: {MOTOR_IDS}\n\n"
+                                f"If the IDs do not match, adjust MOTOR_IDS in the code.")
         else:
-            messagebox.showwarning("Scan Ergebnis", "Keine Motoren gefunden!\n\n"
-                                   "Prüfe Kabel, Stromversorgung und COM-Port.")
+            messagebox.showwarning("Scan Result", "No motors found!\n\n"
+                                   "Check cables, power supply, and COM port.")
 
     def toggle_theme(self):
         self.is_dark_mode = not self.is_dark_mode
         
         if self.is_dark_mode:
-            self.BG_COLOR = "#1e1e2e"
-            self.FG_COLOR = "#cdd6f4"
-            self.ACCENT_BLUE = "#89b4fa"
-            self.ACCENT_GREEN = "#a6e3a1"
-            self.ACCENT_RED = "#f38ba8"
-            self.ACCENT_YELLOW = "#f9e2af"
-            self.ACCENT_PEACH = "#fab387"
-            self.PANEL_BG = "#313244"
-            self.SURFACE_BG = "#45475a"
-            self.SUBTEXT = "#a6adc8"
-            self.motor_colors = ["#f38ba8", "#a6e3a1", "#89b4fa", "#f9e2af", "#cba6f7"]
-            self.btn_theme.config(text="Light Mode")
+            self.BG_COLOR = "#0c0c14"
+            self.FG_COLOR = "#e2e8f0"
+            self.ACCENT_BLUE = "#818cf8"
+            self.ACCENT_GREEN = "#6ee7b7"
+            self.ACCENT_RED = "#fb7185"
+            self.ACCENT_YELLOW = "#fbbf24"
+            self.ACCENT_PEACH = "#f59e6b"
+            self.PANEL_BG = "#141424"
+            self.SURFACE_BG = "#1e1e38"
+            self.SUBTEXT = "#94a3b8"
+            self.motor_colors = ["#fb7185", "#6ee7b7", "#818cf8", "#fbbf24", "#c084fc"]
+            self.btn_theme.config(text="☀ Light")
         else:
-            self.BG_COLOR = "#f5f5f5"
-            self.FG_COLOR = "#1e1e2e"
-            self.ACCENT_BLUE = "#1a73e8"
-            self.ACCENT_GREEN = "#2e7d32"  # Much darker green
-            self.ACCENT_RED = "#c62828"    # Much darker red
-            self.ACCENT_YELLOW = "#f57f17" # Much darker yellow/orange
-            self.ACCENT_PEACH = "#d84315"  # Much darker orange
-            self.PANEL_BG = "#e8e8e8"
-            self.SURFACE_BG = "#d4d4d4"
-            self.SUBTEXT = "#5f6368"
-            self.motor_colors = ["#d32f2f", "#2e7d32", "#1565c0", "#e65100", "#6a1b9a"]  # High contrast dark colors
-            self.btn_theme.config(text="Dark Mode")
+            self.BG_COLOR = "#f8fafc"
+            self.FG_COLOR = "#0f172a"
+            self.ACCENT_BLUE = "#6366f1"
+            self.ACCENT_GREEN = "#059669"
+            self.ACCENT_RED = "#e11d48"
+            self.ACCENT_YELLOW = "#d97706"
+            self.ACCENT_PEACH = "#ea580c"
+            self.PANEL_BG = "#f1f5f9"
+            self.SURFACE_BG = "#e2e8f0"
+            self.SUBTEXT = "#64748b"
+            self.motor_colors = ["#e11d48", "#059669", "#6366f1", "#d97706", "#7c3aed"]
+            self.btn_theme.config(text="🌙 Dark")
         
         self._apply_theme()
 
@@ -2188,18 +2188,18 @@ class DynamixelSquadApp:
         if hasattr(self, 'right_frame') and self.right_frame:
             self.right_frame.configure(bg=self.BG_COLOR)
             
-        select_fg = "#1e1e2e" if self.is_dark_mode else "#ffffff"
+        select_fg = "#0c0c14" if self.is_dark_mode else "#ffffff"
         
         # ttk styles
-        self.style.configure(".", background=self.BG_COLOR, foreground=self.FG_COLOR, font=("Segoe UI", 10))
+        self.style.configure(".", background=self.BG_COLOR, foreground=self.FG_COLOR, font=("Segoe UI", 11))
         self.style.configure("TLabel", background=self.BG_COLOR, foreground=self.FG_COLOR)
         self.style.configure("Panel.TLabel", background=self.PANEL_BG, foreground=self.FG_COLOR)
         self.style.configure("Panel.TFrame", background=self.PANEL_BG)
         self.style.configure("Surface.TFrame", background=self.SURFACE_BG)
         self.style.configure("TFrame", background=self.BG_COLOR)
-        self.style.configure("TLabelframe", background=self.PANEL_BG, foreground=self.ACCENT_BLUE, borderwidth=1, font=("Segoe UI", 10, "bold"))
+        self.style.configure("TLabelframe", background=self.PANEL_BG, foreground=self.ACCENT_BLUE, borderwidth=0, font=("Segoe UI", 10, "bold"))
         self.style.configure("TLabelframe.Label", background=self.PANEL_BG, foreground=self.ACCENT_BLUE)
-        self.style.configure("TButton", background=self.SURFACE_BG, foreground=self.FG_COLOR, borderwidth=0, padding=4, font=("Segoe UI", 9))
+        self.style.configure("TButton", background=self.SURFACE_BG, foreground=self.FG_COLOR, borderwidth=0, padding=(10, 5), font=("Segoe UI", 9))
         self.style.map("TButton", background=[("active", self.ACCENT_BLUE)], foreground=[("active", select_fg)])
         self.style.configure("Primary.TButton", background=self.ACCENT_BLUE, foreground=select_fg, font=("Segoe UI", 9, "bold"))
         self.style.configure("Danger.TButton", background=self.ACCENT_RED, foreground=select_fg, font=("Segoe UI", 9, "bold"))
@@ -2219,11 +2219,11 @@ class DynamixelSquadApp:
                        selectbackground=[("readonly", self.ACCENT_BLUE)], selectforeground=[("readonly", select_fg)])
         
         # Update tk widgets that don't follow ttk styles automatically
-        graph_bg = "#11111b" if self.is_dark_mode else "#ffffff"
+        graph_bg = "#08080f" if self.is_dark_mode else "#ffffff"
         self.canvas.config(bg=graph_bg)
         
         # Update seq_listbox
-        select_fg = "#1e1e2e" if self.is_dark_mode else "#ffffff"
+        select_fg = "#0c0c14" if self.is_dark_mode else "#ffffff"
         self.seq_listbox.config(bg=self.SURFACE_BG, fg=self.FG_COLOR, selectbackground=self.ACCENT_BLUE, selectforeground=select_fg)
         
         # Update motor card backgrounds and borders recursively
@@ -2258,13 +2258,13 @@ class DynamixelSquadApp:
                 self.readout_labels[dxl_id].config(fg=self.FG_COLOR)
             if dxl_id in self.temp_labels:
                 curr_fg = self.temp_labels[dxl_id].cget("fg")
-                if curr_fg in ("#f38ba8", "#c62828"):
+                if curr_fg in ("#fb7185", "#e11d48"):
                     self.temp_labels[dxl_id].config(fg=self.ACCENT_RED)
                 else:
                     self.temp_labels[dxl_id].config(fg=self.ACCENT_GREEN)
             if dxl_id in self.error_labels:
                 curr_fg = self.error_labels[dxl_id].cget("fg")
-                if curr_fg in ("#f38ba8", "#c62828"):
+                if curr_fg in ("#fb7185", "#e11d48"):
                     self.error_labels[dxl_id].config(fg=self.ACCENT_RED)
                 else:
                     self.error_labels[dxl_id].config(fg=self.ACCENT_GREEN)
@@ -2314,11 +2314,11 @@ class DynamixelSquadApp:
             
         # Ask user
         names = [self.motor_names[did] for did in off_ids]
-        msg = "Das Drehmoment (Torque) ist für folgende Motoren deaktiviert:\n\n"
+        msg = "Torque is disabled for the following motors:\n\n"
         msg += "\n".join(f"- {n}" for n in names)
-        msg += "\n\nMöchtest du Torque für diese Motoren jetzt aktivieren, um die Bewegung auszuführen?"
+        msg += "\n\nDo you want to enable torque for these motors now to execute the movement?"
         
-        if messagebox.askyesno("Torque aktivieren?", msg):
+        if messagebox.askyesno("Enable Torque?", msg):
             self.serial_mutex = True
             for did in off_ids:
                 self.torque_vars[did].set(True)
@@ -2331,7 +2331,7 @@ class DynamixelSquadApp:
 
     def reboot_motor(self, dxl_id):
         if not self.is_connected: return
-        if not messagebox.askyesno("Motor Neustart", f"Möchtest du Motor ID {dxl_id} wirklich neu starten?\n(Das löscht alle aktuellen Hardware-Fehler)"):
+        if not messagebox.askyesno("Motor Reboot", f"Do you really want to reboot motor ID {dxl_id}?\n(This clears all current hardware errors)"):
             return
             
         self.serial_mutex = True
@@ -2670,14 +2670,14 @@ class DynamixelSquadApp:
             # --- Achsenlinien ---
             # Y-Achse
             self.canvas.create_line(margin_left, margin_top, margin_left, height - margin_bottom,
-                                    fill="#45475a", width=1)
+                                    fill="#1e1e38", width=1)
             # X-Achse
             self.canvas.create_line(margin_left, height - margin_bottom, width - margin_right, height - margin_bottom,
-                                    fill="#45475a", width=1)
+                                    fill="#1e1e38", width=1)
             
             # --- Y-Achse Beschriftung & Tick-Marks ---
             self.canvas.create_text(margin_left - 5, margin_top + plot_h // 2, anchor="e",
-                                    text="Strom\n(mA)", fill="#a6adc8", font=("Segoe UI", 7),
+                                    text="Strom\n(mA)", fill="#94a3b8", font=("Segoe UI", 7),
                                     justify="center")
             
             y_ticks = [0, 250, 500, 750, 1000, 1250, 1500, 1750]
@@ -2686,18 +2686,18 @@ class DynamixelSquadApp:
                 if y_pos >= margin_top:
                     # Tick-Linie
                     self.canvas.create_line(margin_left - 4, y_pos, margin_left, y_pos,
-                                            fill="#585b70", width=1)
+                                            fill="#2a2a45", width=1)
                     # Tick-Beschriftung
                     self.canvas.create_text(margin_left - 6, y_pos, anchor="e",
-                                            text=str(tick_val), fill="#6c7086", font=("Segoe UI", 7))
+                                            text=str(tick_val), fill="#64748b", font=("Segoe UI", 7))
                     # Horizontale Hilfslinien (dezent)
                     if tick_val > 0:
                         self.canvas.create_line(margin_left + 1, y_pos, width - margin_right, y_pos,
-                                                fill="#1e1e2e", width=1, dash=(2, 4))
+                                                fill="#141424", width=1, dash=(2, 4))
             
             # --- X-Achse Beschriftung ---
             self.canvas.create_text(margin_left + plot_w // 2, height - 3, anchor="s",
-                                    text="Zeit (t)", fill="#a6adc8", font=("Segoe UI", 8))
+                                    text="Zeit (t)", fill="#94a3b8", font=("Segoe UI", 8))
             
             for i, dxl_id in enumerate(MOTOR_IDS):
                 hist = self.graph_history[dxl_id]
@@ -2727,9 +2727,9 @@ class DynamixelSquadApp:
                 # Kontakt-Indikator im Graph (basierend auf Feature 3)
                 contact = self.contact_states.get(dxl_id, "none")
                 if contact == "contact":
-                    self.graph_indicators[dxl_id]["label"].config(bg=self.ACCENT_GREEN, fg="#1e1e2e")
+                    self.graph_indicators[dxl_id]["label"].config(bg=self.ACCENT_GREEN, fg="#0c0c14")
                 elif contact == "approaching":
-                    self.graph_indicators[dxl_id]["label"].config(bg=self.ACCENT_YELLOW, fg="#1e1e2e")
+                    self.graph_indicators[dxl_id]["label"].config(bg=self.ACCENT_YELLOW, fg="#0c0c14")
                 else:
                     self.graph_indicators[dxl_id]["label"].config(bg=self.PANEL_BG, fg=color)
                     
@@ -2755,8 +2755,8 @@ class DynamixelSquadApp:
         from tkinter import filedialog
         file_path = filedialog.asksaveasfilename(
             defaultextension=".xls",
-            filetypes=[("Excel 97-2003 Arbeitsmappe", "*.xls"), ("Alle Dateien", "*.*")],
-            title="Graphendaten für Excel exportieren"
+            filetypes=[("Excel 97-2003 Workbook", "*.xls"), ("All Files", "*.*")],
+            title="Export graph data for Excel"
         )
         if not file_path:
             return
@@ -2779,7 +2779,7 @@ class DynamixelSquadApp:
             xml_lines.append('    <Cell><Data ss:Type="String">Index</Data></Cell>')
             for dxl_id in MOTOR_IDS:
                 name = self.motor_names.get(dxl_id, f"Motor_{dxl_id}")
-                xml_lines.append(f'    <Cell><Data ss:Type="String">{name} Strom (mA)</Data></Cell>')
+                xml_lines.append(f'    <Cell><Data ss:Type="String">{name} Current (mA)</Data></Cell>')
                 xml_lines.append(f'    <Cell><Data ss:Type="String">{name} Limit (mA)</Data></Cell>')
             xml_lines.append('   </Row>')
             
@@ -2803,16 +2803,16 @@ class DynamixelSquadApp:
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write("\n".join(xml_lines))
                 
-            messagebox.showinfo("Erfolg", f"Excel-kompatible Datei erfolgreich exportiert nach:\n{file_path}")
+            messagebox.showinfo("Success", f"Excel-compatible file successfully exported to:\n{file_path}")
         except Exception as e:
-            messagebox.showerror("Fehler", f"Konnte Excel-Datei nicht exportieren:\n{e}")
+            messagebox.showerror("Error", f"Could not export Excel file:\n{e}")
 
     def export_graph_csv(self):
         from tkinter import filedialog
         file_path = filedialog.asksaveasfilename(
             defaultextension=".csv",
-            filetypes=[("CSV-Dateien", "*.csv"), ("Alle Dateien", "*.*")],
-            title="Graphendaten exportieren"
+            filetypes=[("CSV Files", "*.csv"), ("All Files", "*.*")],
+            title="Export graph data"
         )
         if not file_path:
             return
@@ -2823,7 +2823,7 @@ class DynamixelSquadApp:
                 header = ["Index"]
                 for dxl_id in MOTOR_IDS:
                     name = self.motor_names.get(dxl_id, f"Motor_{dxl_id}")
-                    header.extend([f"{name}_Strom_mA", f"{name}_Limit_mA"])
+                    header.extend([f"{name}_Current_mA", f"{name}_Limit_mA"])
                 writer.writerow(header)
                 for idx in range(50):
                     row = [idx]
@@ -2832,16 +2832,16 @@ class DynamixelSquadApp:
                         lim = self.limit_history[dxl_id][idx]
                         row.extend([curr, lim])
                     writer.writerow(row)
-            messagebox.showinfo("Erfolg", f"Daten erfolgreich exportiert nach:\n{file_path}")
+            messagebox.showinfo("Success", f"Data successfully exported to:\n{file_path}")
         except Exception as e:
-            messagebox.showerror("Fehler", f"Konnte Daten nicht exportieren:\n{e}")
+            messagebox.showerror("Error", f"Could not export data:\n{e}")
 
     def export_graph_png(self):
         from tkinter import filedialog
         file_path = filedialog.asksaveasfilename(
             defaultextension=".png",
-            filetypes=[("PNG-Bilder", "*.png"), ("Alle Dateien", "*.*")],
-            title="Graph als Bild exportieren"
+            filetypes=[("PNG Images", "*.png"), ("All Files", "*.*")],
+            title="Export graph as image"
         )
         if not file_path:
             return
@@ -2854,14 +2854,14 @@ class DynamixelSquadApp:
             from PIL import ImageGrab
             img = ImageGrab.grab(bbox=(x, y, x + w, y + h))
             img.save(file_path)
-            messagebox.showinfo("Erfolg", f"Bild erfolgreich gespeichert unter:\n{file_path}")
+            messagebox.showinfo("Success", f"Image successfully saved under:\n{file_path}")
         except Exception as e:
             try:
                 eps_path = file_path.rsplit(".", 1)[0] + ".eps"
                 self.canvas.postscript(file=eps_path, colormode="color")
-                messagebox.showinfo("Teilerfolg", f"PNG-Export fehlgeschlagen, aber EPS-Vektorgrafik wurde gespeichert:\n{eps_path}")
+                messagebox.showinfo("Partial Success", f"PNG export failed, but EPS vector graphic was saved:\n{eps_path}")
             except Exception as eps_err:
-                messagebox.showerror("Fehler", f"Konnte Bild nicht exportieren:\n{e}\n\nEPS-Fehler: {eps_err}")
+                messagebox.showerror("Error", f"Could not export image:\n{e}\n\nEPS Error: {eps_err}")
 
 
 if __name__ == "__main__":
