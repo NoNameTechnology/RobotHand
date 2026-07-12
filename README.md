@@ -27,6 +27,18 @@ Eine moderne, feature-reiche Benutzeroberfläche zur präzisen Steuerung einer 5
 
 ---
 
+## 🎓 Ausrichtung auf das Robotik-Projekt (SoSe 2026)
+
+Diese Software wurde speziell entwickelt, um die Anforderungen des **Roboterprojekts SoSe 2026 ("Soft!-robotic Hands")** optimal zu unterstützen:
+
+* **3+ Finger & Opponierbarkeit**: Das System steuert standardmäßig bis zu 5 Motoren (IDs `0` bis `4`). Damit lässt sich eine Hand mit einem opponierbaren Daumen und vier Fingern präzise programmieren.
+* **Passive Nachgiebigkeit & Seilzüge**: Durch den **Soft-Robotic Mode (Current-Based Position)** wird verhindert, dass Seilzüge reißen oder starre Gestänge überlastet werden. Die Motoren fahren in ihre Zielpositionen, geben aber elastisch nach, sobald ein mechanischer Widerstand auftritt.
+* **Kontakterkennung durch die Motoren**: Über die integrierte Stromüberwachung (`CONTACT_AVG_WINDOW`, `CONTACT_SPIKE_THRESHOLD`) erkennt die Software automatisch, wenn ein Finger auf ein Objekt trifft. Dadurch ist eine rein hardwarebasierte Greifkraftregelung ohne externe Sensorik möglich.
+* **Pflicht-Grasps (Demos)**: Die drei geforderten Greifarten (**Edge-Grasp**, **Top-Grasp** und **Wall-Grasp**) sowie eine Ausgangsstellung (**Hand Open**) werden beim ersten Start der Software automatisch als Vorlagen in [poses.json](file:///c:/Users/miyan/Downloads/Robothand/RobotHand/poses.json) initialisiert, sodass sie sofort kalibriert und abgespeichert werden können.
+* **Wiederholbarkeit (min. 3 erfolgreiche Versuche)**: Der Sequenz-Player besitzt eine integrierte **Wiederholungsauswahl (Wdh: 1x, 3x, 5x, Endlos)**. Für die finale Demonstration kann der Ablauf, ein Objekt aufzunehmen und in der Box abzulegen, mit einem einzigen Klick vollautomatisch dreimal (oder öfter) hintereinander ausgeführt werden.
+
+---
+
 ## 🛠 Hardware-Anforderungen
 
 1. **Dynamixel XL330-M288 Servos**: 5 Motoren (IDs `0` bis `4`).
