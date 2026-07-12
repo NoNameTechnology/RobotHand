@@ -92,14 +92,21 @@ Um Latenzen in der GUI zu vermeiden, ist die App nach dem MVC-Muster (Model-View
 
 ### 1. Threading-Workflow
 
-```text
-[Main Thread / UI]                          [Background Thread / Hardware]
-       |                                                 |
-       |--- Zeigt Slider & Graphen an                    |--- Wartet auf USB/Serial
-       |--- Nimmt User-Klick entgegen  ----> (Queue) ----> Sendet Befehl an Motor
-       |                                                 |
-       |<-- Liest "Thread-Safe" Status <-----------------|--- Pollt permanent Telemetrie
-       |    (zeichnet UI neu)                            |    (Temperatur, Strom, Posen)
+```mermaid
+sequenceDiagram
+    participant UI as Main Thread (UI)
+    participant State as Thread-Safe State
+    participant HW as Background Thread (Hardware)
+    
+    UI->>UI: Zeigt Slider & Graphen an
+    HW->>HW: Wartet auf USB/Serial
+    
+    UI->>HW: User-Klick (via Command Queue)
+    HW->>HW: Sendet Befehl an Motor
+    
+    HW->>HW: Pollt permanent Telemetrie
+    HW->>State: Schreibt aktuelle Sensorwerte
+    State-->>UI: UI liest Daten & zeichnet neu
 ```
 
 **Start-Sequenz in `main.py`:**
