@@ -8,7 +8,7 @@
 * Klicke oben links auf **"Connect"**. Der Status wechselt auf ● **ONLINE**.
 
 ### 2. Kalibrieren der Finger
-* Fahre einen Finger manuell (oder bei ausgeschaltetem Torque von Hand) in die offene Position. Klicke auf **"Set Zero"**.
+* Fahre einen Finger manuell (oder bei ausgeschaltetem Torque von Hand bzw. im Endlos-Modus) in die offene Position. Klicke auf **"Set Zero"**.
 * Fahre denselben Finger in die voll geschlossene Greifposition. Klicke auf **"Set Limit"**.
 * Drücke auf das Speichern-Symbol, um die Kalibrierung in die `calibration.json` zu schreiben.
 * *Hinweis*: Nach der Kalibrierung wechselt der Motor automatisch in den sicheren *Current-Based Position* Modus. Der Slider skaliert nun linear zwischen 0 % (Zero) und 100 % (Limit).
