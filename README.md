@@ -1,116 +1,173 @@
-# RobotHand - Dynamixel XL330-M288 Hand-Controller
+# 🤖 RobotHand – Dynamixel XL330-M288 Hand-Controller
 
-Eine moderne, feature-reiche Benutzeroberfläche zur präzisen Steuerung einer 5-achsigen robotergestützten Hand (RobotHand). Das System basiert auf Python (Tkinter) und nutzt das offizielle Robotis Dynamixel SDK zur Steuerung von XL330-M288 Servomotoren.
+[![Python Version](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
+[![GUI Framework](https://img.shields.io/badge/GUI-Tkinter-lightgrey.svg)](https://docs.python.org/3/library/tkinter.html)
+[![Dynamixel SDK](https://img.shields.io/badge/SDK-Dynamixel_Protocol_2.0-red.svg)](https://emanual.robotis.com/docs/en/software/dynamixel/dynamixel_sdk/overview/)
+[![Platform Support](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-brightgreen.svg)](https://github.com/Robotis-GIT/DynamixelSDK)
+
+Diese Software bietet eine moderne, intuitive Benutzeroberfläche zur präzisen Steuerung einer robotergestützten Hand (**RobotHand**). Sie wurde speziell für das Projekt "Soft!-robotic Hands" (SoSe 2026) konzipiert und ermöglicht eine elastische, kraftgesteuerte Seilzug- und Fingersteuerung basierend auf **Dynamixel XL330-M288** Servomotoren.
 
 ---
 
 ## 🚀 Hauptmerkmale
 
-* **Intuitives Dashboard**: Ein ansprechendes Dark-Mode-Interface mit klar strukturierten Kontrollkarten für jeden einzelnen Finger/Motor.
-* **Mehrere Betriebsmodi**:
-  * **Position Mode (Joint Mode)**: Präzise Winkelsteuerung.
-  * **Velocity Mode (Wheel Mode)**: Kontinuierliche Rotation für spezielle Endeffektoren.
-  * **Current-Based Position Mode (Soft-Robotic Mode)**: Kraftbegrenzte Positionssteuerung, ideal für sensibles Greifen ohne Beschädigung von Objekten.
-* **Synchronisierte Steuerung**: Master-Slider zur simultanen Verstellung aller ausgewählten Motoren.
-* **Präzise Mausradsteuerung**: Alle Schieberegler (für Positionen, Grenzwerte, Geschwindigkeiten und Master-Werte) können präzise über das Mausrad gesteuert werden, wenn sich der Mauszeiger darüber befindet. Um Doppeleffekte zu vermeiden, wird das Scrollen des gesamten Fensters währenddessen automatisch blockiert.
-* **Echtzeit-Feedback & Sicherheit**:
-  * Live-Anzeige von Stromstärke (Stromverbrauch), Position und Temperatur.
-  * Automatische Temperaturüberwachung mit Warnmeldungen bei Überhitzung.
-  * Auslesen und Visualisieren von Hardware-Fehlercodes direkt aus dem EEPROM/RAM der Motoren.
-* **Grasp- & Kontakterkennung**: Intelligente Kontakt- und Spike-Erkennung basierend auf Stromstärkeverläufen zum automatischen Stoppen oder Auslösen von Aktionen bei physischem Widerstand.
-* **Kalibrierungssystem**: Einfache Definition von Nullpunkten und Bewegungsgrenzen für jeden Motor, um Überlastungen oder mechanische Beschädigungen zu verhindern.
-* **Posen- & Sequenzmanager**:
-  * Erstellen, Speichern und Laden von Handstellungen (Posen).
-  * Vordefinierte Standard-Grasps (z. B. Edge-Grasp, Top-Grasp, Wall-Grasp).
-  * Verketten von Posen zu komplexen Abläufen (Sequenzen) mit individuellen Wartebedingungen (Zeit- oder Kontaktgesteuert).
-  * Zyklische (Loop) oder einmalige Ausführung der Sequenzen.
+### 1. Betriebsmodi
+* **Position Mode (Joint Mode)**: Klassische Winkelregelung der Servos.
+* **Velocity Mode (Wheel Mode / Endlos-Rotation)**: Endlose Drehung mit kontinuierlicher Geschwindigkeitsregelung (z. B. für Spindeln oder Seilwickler).
+* **Current-Based Position Mode (Soft-Robotic Mode)**: Positionsregelung mit aktiver Strombegrenzung. Ermöglicht ein nachgiebiges Greifen und schützt die mechanischen Seilzüge vor dem Reißen.
+
+### 2. Live-Telemetrie & Überlastungsschutz
+* **Live-Stromaufzeichnung**: Grafische Echtzeitüberwachung des Motorstroms (mA) aller 5 Kanäle im unteren Plot-Bereich.
+* **Temperatur-Wächter**: Permanent überwachte Motortemperaturen. Überschreitet ein Motor $55\text{ }^\circ\text{C}$, färbt sich die Anzeige rot und ein Warnbanner wird eingeblendet.
+* **Hardware-Diagnose**: Direktes Auslesen des EEPROM-Fehlerregisters der XL330-Servos (z. B. Overload, Overheating) mit optischem Statussymbol ($\checkmark$ oder $\text{Warning}$).
+* **EMERGENCY STOP**: Sofortige Deaktivierung des Drehmoments (Torque OFF) für alle Motoren über eine dedizierte Taste.
+
+### 3. Kontakt- & Greiferkennung
+* **Flankenerkennung (Rate-of-Change)**: Erkennt plötzliche Strompeaks bei physischem Widerstand.
+* **Gleitender Durchschnitt**: Rauschfreie Berechnung über ein konfigurierbares Messfenster (`CONTACT_AVG_WINDOW = 5`), um Fehlauslösungen zu vermeiden.
+* **Indikatoren**: Dreistufiger Status pro Motor (● `No Contact` / ● `Approaching` (Annäherung) / ● `Contact!` (Kontakt)).
+
+---
+
+## 📸 Benutzeroberfläche
+
+Die GUI folgt einem aufgeräumten, minimalistischen Design, um den Fokus auf die Steuerung zu legen:
+* **Dark & Light Mode**: Ein augenfreundliches Dark Theme (`#0c0c14` Hintergrund) sowie ein sauberer Light Mode (`#f8fafc` Slate-Hintergrund) mit Farbakzenten zur klaren Unterscheidung der Motorkanäle.
+* **Zweisprachiges Design**: Die Benutzeroberfläche ist auf Englisch gehalten (Industriestandard), während detaillierte Tooltips (Hover-Erklärungen) auf Deutsch eine schnelle Einarbeitung im Labor gewährleisten.
+* **Übersichtliches Layout**: Klar strukturierte Motorkarten mit abgerundeten Abständen, frei von störenden Rahmenlinien.
+* **Intuitive Bedienung**: Alle Regler (Positionen, Strombegrenzungen, Geschwindigkeiten, Master-Werte) können präzise mit dem Mausrad verstellt werden. Das Scrollen des Hauptfensters wird währenddessen intelligent blockiert.
 
 ---
 
 ## 🎓 Ausrichtung auf das Robotik-Projekt (SoSe 2026)
 
-Diese Software wurde speziell entwickelt, um die Anforderungen des **Roboterprojekts SoSe 2026 ("Soft!-robotic Hands")** optimal zu unterstützen:
-
-* **3+ Finger & Opponierbarkeit**: Das System steuert standardmäßig bis zu 5 Motoren (IDs `0` bis `4`). Damit lässt sich eine Hand mit einem opponierbaren Daumen und vier Fingern präzise programmieren.
-* **Passive Nachgiebigkeit & Seilzüge**: Durch den **Soft-Robotic Mode (Current-Based Position)** wird verhindert, dass Seilzüge reißen oder starre Gestänge überlastet werden. Die Motoren fahren in ihre Zielpositionen, geben aber elastisch nach, sobald ein mechanischer Widerstand auftritt.
-* **Kontakterkennung durch die Motoren**: Über die integrierte Stromüberwachung (`CONTACT_AVG_WINDOW`, `CONTACT_SPIKE_THRESHOLD`) erkennt die Software automatisch, wenn ein Finger auf ein Objekt trifft. Dadurch ist eine rein hardwarebasierte Greifkraftregelung ohne externe Sensorik möglich.
-* **Pflicht-Grasps (Demos)**: Die drei geforderten Greifarten (**Edge-Grasp**, **Top-Grasp** und **Wall-Grasp**) sowie eine Ausgangsstellung (**Hand Open**) werden beim ersten Start der Software automatisch als Vorlagen in [poses.json](file:///c:/Users/miyan/Downloads/Robothand/RobotHand/poses.json) initialisiert, sodass sie sofort kalibriert und abgespeichert werden können.
-* **Wiederholbarkeit (min. 3 erfolgreiche Versuche)**: Der Sequenz-Player besitzt eine integrierte **Wiederholungsauswahl (Wdh: 1x, 3x, 5x, Endlos)**. Für die finale Demonstration kann der Ablauf, ein Objekt aufzunehmen und in der Box abzulegen, mit einem einzigen Klick vollautomatisch dreimal (oder öfter) hintereinander ausgeführt werden.
+* **Opponierbarkeit**: Unterstützung von bis zu 5 Motoren (IDs `0` bis `4`). Perfekt ausgelegt für vier Finger und einen opponierbaren Daumen.
+* **Passive Nachgiebigkeit**: Durch den Current-Based Position Mode geben die Finger bei mechanischem Widerstand elastisch nach, was ein feinfühliges Greifen zerbrechlicher Objekte ermöglicht.
+* **Pflicht-Grasps**: Die geforderten Demogriffe (**Edge-Grasp**, **Top-Grasp** und **Wall-Grasp**) sowie die Grundstellung **Hand Open** sind direkt im System als Vorlagen integriert.
+* **Wiederholbarkeit (Ablaufsteuerung)**: Der integrierte Sequenz-Player ermöglicht die automatische, fehlerfreie Wiederholung von Greif- und Ablagevorgängen (z. B. exakt 3 Durchläufe für die Projektdemonstration).
 
 ---
 
-## 🛠 Hardware-Anforderungen
+## 🛠 Hardware-Verkabelung
 
-1. **Dynamixel XL330-M288 Servos**: 5 Motoren (IDs `0` bis `4`).
-2. **Schnittstellenkonverter**: Robotis U2D2 (oder kompatibler USB-zu-RS485/TTL-Konverter).
-3. **Stromversorgung**: Passende Stromquelle für die Servos (typischerweise 3.7V - 5.0V für XL330er).
-4. **Verbindungskabel**: TTL-Verbindungskabel zur Verkettung der Motoren.
-
----
-
-## 📦 Software-Anforderungen & Installation
-
-### Voraussetzungen
-Stellen Sie sicher, dass Python 3.x auf Ihrem System installiert ist. 
-
-### Bibliotheken installieren
-Installieren Sie das offizielle Dynamixel SDK über `pip`:
-
-```bash
-pip install dynamixel-sdk
-```
-
-*(Tkinter ist in der Standardbibliothek von Python enthalten und muss in der Regel nicht separat installiert werden.)*
-
-### COM-Port & Baudrate konfigurieren
-Standardmäßig ist das Skript auf folgende Verbindungsparameter eingestellt:
-* **Port**: `COM10`
-* **Baudrate**: `115200`
-
-Diese Werte können im Kopfbereich der Datei [motor_control.py](file:///c:/Users/miyan/Downloads/Robothand/RobotHand/motor_control.py) angepasst werden:
-```python
-COM_PORT = "COM10"
-BAUDRATE = 115200
-MOTOR_IDS = [0, 1, 2, 3, 4]
+```text
++------------+     USB     +----------------+   Half-Duplex   +----------+
+|  Steuer-   | <=========> |  Robotis U2D2  | <-------------> | Motor #0 | (Daumen-MCP)
+|    PC      |             |   Konverter    |   TTL-Bus       +----------+
++------------+             +----------------+                      |
+                                   ^                               V
+                                   | External Power           +----------+
+                                   +--- (5.6V)         | Motor #1 | (Daumen-ALL)
+                                                              +----------+
+                                                                   |
+                                                                   V
+                                                                  ...
+                                                              +----------+
+                                                              | Motor #4 | (Motor 4)
+                                                              +----------+
 ```
 
 ---
 
-## 📂 Projektstruktur & Konfigurationsdateien
+## 📦 Installation & Setup
 
-Das Projekt ist modular aufgebaut und speichert Kalibrierungs- und Konfigurationsdaten in strukturierten JSON-Dateien:
-
-* 📄 [motor_control.py](file:///c:/Users/miyan/Downloads/Robothand/RobotHand/motor_control.py): Das Hauptskript mit der Steuerungslogik und der Tkinter-Benutzeroberfläche.
-* ⚙️ [calibration.json](file:///c:/Users/miyan/Downloads/Robothand/RobotHand/calibration.json): Speichert die definierten Nullpunkte (`calib_zero`) und die maximal zulässigen Bewegungsgrenzen (`calib_limit`) pro Motor.
-* 🏷️ [motor_names.json](file:///c:/Users/miyan/Downloads/Robothand/RobotHand/motor_names.json): Enthält die benutzerdefinierten Bezeichnungen der Motoren (z. B. "Daumen-MCP", "Daumen-ALL").
-* 💾 [poses.json](file:///c:/Users/miyan/Downloads/Robothand/RobotHand/poses.json): Datenbank der erstellten Handstellungen und Grasp-Konfigurationen.
-* 🎬 [sequences.json](file:///c:/Users/miyan/Downloads/Robothand/RobotHand/sequences.json): Enthält gespeicherte Bewegungsabläufe mit ihren Frames und Übergangsbedingungen.
-* 🖥️ [window_layout.json](file:///c:/Users/miyan/Downloads/Robothand/RobotHand/window_layout.json): Merkt sich die Fenstergröße, Position und den Theme-Status (Dark/Light Mode) beim Schließen der Anwendung.
+1. **Python 3** herunterladen und installieren.
+2. Das offizielle **Robotis Dynamixel SDK** installieren:
+   ```bash
+   pip install dynamixel-sdk
+   ```
+3. *(Optional)* **Pillow** für den PNG-Export der Live-Graphen installieren:
+   ```bash
+   pip install pillow
+   ```
+4. Die Konfigurationen am Dateianfang von `motor_control.py` anpassen (COM-Port, Baudrate und verwendete Motor-IDs):
+   ```python
+   COM_PORT = "COM10"
+   BAUDRATE = 115200
+   MOTOR_IDS = [0, 1, 2, 3, 4]
+   ```
 
 ---
 
-## 📖 Bedienungsanleitung
+## 📖 Kurzanleitung zur Bedienung
 
-### 1. Anwendung starten
-Führen Sie das Hauptskript aus:
-```bash
-python motor_control.py
+### 1. Verbindung herstellen
+* Wähle den korrekten COM-Port im Code.
+* Starte die GUI mit `python motor_control.py`.
+* Klicke oben links auf **"Connect"**. Der Status wechselt auf ● **ONLINE**.
+
+### 2. Finger kalibrieren
+* Fahre einen Finger manuell (oder bei ausgeschaltetem Torque von Hand) in die offene Position. Klicke auf **"Set Zero"**.
+* Fahre denselben Finger in die voll geschlossene Greifposition. Klicke auf **"Set Limit"**.
+* Drücke auf das Speichern-Symbol, um die Kalibrierung in die `calibration.json` zu schreiben.
+* *Hinweis*: Nach der Kalibrierung wechselt der Motor automatisch in den sicheren *Current-Based Position* Modus. Der Slider skaliert nun linear zwischen 0 % (Zero) und 100 % (Limit).
+
+### 3. Posen speichern und Sequenzen abspielen
+* **Pose anlegen**: Bringe die Finger in Position, vergib oben rechts einen Namen (z. B. "Greif-Bereit") und klicke auf das Disketten-Symbol.
+* **Schritt hinzufügen**: Wähle eine Pose im Dropdown, stelle die Wartebedingung ein (`ms` für Zeitdauer) und klicke auf **"+ Sequence"**.
+* **Sequenz bearbeiten**: Klicke doppelt auf einen Eintrag in der Liste der Ablaufsteuerung, um den Schritt-Editor zu öffnen. Hier können Geschwindigkeiten und Greifkräfte pro Finger separat justiert werden.
+* **Ablauf starten**: Klicke auf den blauen **"Start"**-Button.
+
+---
+
+## 📂 Projektdateien & Datenformate
+
+Die Steuerungssoftware speichert alle Konfigurationen automatisch im Projektordner als strukturierte JSON-Dateien:
+
+### ⚙️ `calibration.json`
+Speichert die kalibrierten Ticks für den Nullpunkt (geöffnet) und das Limit (geschlossen):
+```json
+{
+  "calib_zero":  { "0": null, "1": 2383, "2": -3898, "3": null, "4": null },
+  "calib_limit": { "0": null, "1": 5103, "2": 1133,  "3": null, "4": null }
+}
 ```
 
-### 2. Kalibrierung durchführen
-* Bringen Sie die Motoren manuell oder per Regler in die gewünschte Nullstellung (z. B. voll geöffnet). Klicken Sie auf **"Zero"** beim jeweiligen Motor.
-* Bewegen Sie die Motoren an das sichere mechanische Limit (z. B. voll geschlossen). Klicken Sie auf **"Limit"** beim jeweiligen Motor.
-* Klicken Sie oben auf **"Save Calibration"**, um die Einstellungen dauerhaft zu sichern. Die Steuerung verhindert nun automatisch das Überschreiten dieser Grenzwerte.
+### 🏷️ `motor_names.json`
+Ordnet den Motor-IDs lesbare Namen für das Dashboard und die Legenden zu:
+```json
+{
+  "0": "Motor 0",
+  "1": "Daumen-MCP",
+  "2": "Daumen-ALL",
+  "3": "Motor 3",
+  "4": "Motor 4"
+}
+```
 
-### 3. Posen erstellen
-* Stellen Sie die Finger in eine gewünschte Greif-Position.
-* Geben Sie im rechten Panel unter *Poses* einen Namen ein und klicken Sie auf **"Save Pose"**. Diese Pose ist fortan in der Dropdown-Liste verfügbar.
+### 💾 `poses.json`
+Enthält abgespeicherte statische Handstellungen samt Positionen, individueller Kraftgrenzen (mA) und aktivierter Soft-Grip Toggles:
+```json
+{
+  "Hand Open": {
+    "pose": { "1": 2383, "2": -3898 },
+    "limits": { "1": 1750, "2": 1750 },
+    "velocities": { "1": 100, "2": 100 },
+    "soft_grip_global": false,
+    "soft_grip_motors": { "0": false, "1": false, "2": false, "3": false, "4": false }
+  }
+}
+```
 
-### 4. Sequenzen programmieren
-* Wählen Sie eine Pose aus der Liste.
-* Wählen Sie die Wartebedingung für diesen Schritt:
-  * **Time**: Wartet eine definierte Zeit in Millisekunden (z. B. 1000 ms).
-  * **Grasp (Kontakt)**: Wartet, bis die Sensoren physischen Kontakt (Anstieg der Stromstärke) registrieren oder ein Timeout abgelaufen ist.
-* Klicken Sie auf **"Add to Seq"**, um den Schritt anzuhängen.
-* Sortieren Sie die Schritte nach Bedarf mit **"Up"** / **"Down"** und speichern Sie die Sequenz unter einem individuellen Namen ab.
-* Mit **"Start"** führen Sie den Ablauf aus.
+### 🎬 `sequences.json`
+Beinhaltet verkettete Bewegungsabläufe. Jeder Schritt kann entweder eine feste Wartezeit (`Time`) oder eine sensorische Bedingung (`Grasp` - warten auf Kontakt) besitzen:
+```json
+{
+  "MeinAblauf": {
+    "frames": [
+      {
+        "name": "Hand Open",
+        "state": {
+          "pose": { "1": 2383, "2": -3898 },
+          "limits": { "0": "default", "1": "default", "2": "default" },
+          "velocities": { "1": 100, "2": 100 }
+        },
+        "wait_type": "Time",
+        "wait_val": 50
+      }
+    ],
+    "default_sg": { "0": false, "1": true, "2": true, "3": false, "4": false },
+    "default_ma": { "0": 1750, "1": 353, "2": 556 }
+  }
+}
+```
