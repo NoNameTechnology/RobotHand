@@ -712,6 +712,14 @@ class DynamixelSquadApp:
         btn_export.pack(side=tk.RIGHT, padx=5)
         create_tooltip(btn_export, "Exportiert die Graphendaten als CSV oder als Bild (PNG).")
 
+        # --- Class Bindings for MouseWheel on Sliders ---
+        self.root.bind_class("TScale", "<MouseWheel>", self.on_class_slider_mousewheel)
+        self.root.bind_class("Scale", "<MouseWheel>", self.on_class_slider_mousewheel)
+        self.root.bind_class("TScale", "<Button-4>", self.on_class_slider_mousewheel)
+        self.root.bind_class("Scale", "<Button-4>", self.on_class_slider_mousewheel)
+        self.root.bind_class("TScale", "<Button-5>", self.on_class_slider_mousewheel)
+        self.root.bind_class("Scale", "<Button-5>", self.on_class_slider_mousewheel)
+
     # =================================================================
     # --- MOTOR NAMING (Feature 9) ---
     # =================================================================
@@ -2401,6 +2409,70 @@ class DynamixelSquadApp:
             self.packetHandler.write1ByteTxRx(self.portHandler, dxl_id, ADDR_TORQUE_ENABLE, 1)
 
         self.serial_mutex = False
+
+    def on_class_slider_mousewheel(self, event):
+        slider = event.widget
+        
+        # Check if the widget is disabled
+        is_disabled = False
+        try:
+            state_val = str(slider.cget("state"))
+            if "disabled" in state_val:
+                is_disabled = True
+        except Exception:
+            pass
+            
+        try:
+            if hasattr(slider, "state") and "disabled" in slider.state():
+                is_disabled = True
+        except Exception:
+            pass
+            
+        if is_disabled:
+            return "break"
+            
+        # Determine direction
+        if event.num == 4:
+            direction = 1
+        elif event.num == 5:
+            direction = -1
+        elif event.delta > 0:
+            direction = 1
+        elif event.delta < 0:
+            direction = -1
+        else:
+            return "break"
+            
+        # Get scale details
+        try:
+            from_ = float(slider.cget("from"))
+            to = float(slider.cget("to"))
+        except Exception:
+            return "break"
+            
+        range_val = abs(to - from_)
+        
+        # Determine step size based on range
+        if range_val > 1000:
+            step = 10  # precise control for position range
+        elif range_val > 200:
+            step = 5   # e.g. current limits or velocities
+        else:
+            step = 1   # e.g. master percentage or master velocity
+            
+        current_val = float(slider.get())
+        new_val = current_val + direction * step
+        
+        # Clamp within bounds
+        min_limit = min(from_, to)
+        max_limit = max(from_, to)
+        if new_val < min_limit:
+            new_val = min_limit
+        elif new_val > max_limit:
+            new_val = max_limit
+            
+        slider.set(new_val)
+        return "break"
 
     def on_slider_release(self, event, dxl_id):
         if not self.is_connected or not self.torque_vars[dxl_id].get(): return

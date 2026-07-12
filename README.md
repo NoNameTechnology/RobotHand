@@ -12,6 +12,7 @@ Eine moderne, feature-reiche Benutzeroberfläche zur präzisen Steuerung einer 5
   * **Velocity Mode (Wheel Mode)**: Kontinuierliche Rotation für spezielle Endeffektoren.
   * **Current-Based Position Mode (Soft-Robotic Mode)**: Kraftbegrenzte Positionssteuerung, ideal für sensibles Greifen ohne Beschädigung von Objekten.
 * **Synchronisierte Steuerung**: Master-Slider zur simultanen Verstellung aller ausgewählten Motoren.
+* **Präzise Mausradsteuerung**: Alle Schieberegler (für Positionen, Grenzwerte, Geschwindigkeiten und Master-Werte) können präzise über das Mausrad gesteuert werden, wenn sich der Mauszeiger darüber befindet. Um Doppeleffekte zu vermeiden, wird das Scrollen des gesamten Fensters währenddessen automatisch blockiert.
 * **Echtzeit-Feedback & Sicherheit**:
   * Live-Anzeige von Stromstärke (Stromverbrauch), Position und Temperatur.
   * Automatische Temperaturüberwachung mit Warnmeldungen bei Überhitzung.
