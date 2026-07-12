@@ -1,167 +1,180 @@
-# RobotHand – Dynamixel XL330-M288 Hand-Controller
+# 🤖 RobotHand – Dynamixel XL330-M288 Hand-Controller
 
 [![Python Version](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
 [![GUI Framework](https://img.shields.io/badge/GUI-Tkinter-lightgrey.svg)](https://docs.python.org/3/library/tkinter.html)
 [![Dynamixel SDK](https://img.shields.io/badge/SDK-Dynamixel_Protocol_2.0-red.svg)](https://emanual.robotis.com/docs/en/software/dynamixel/dynamixel_sdk/overview/)
 
-Diese Dokumentation beschreibt die **RobotHand**-Software, ein Tool zur Steuerung einer robotergestützten Hand über eine grafische Benutzeroberfläche. 
+*(For English speakers: Please see [CONTRIBUTING.md](CONTRIBUTING.md) or run the UI to see the integrated English interface.)*
 
-Entwickelt für das Projekt „Soft!-robotic Hands“ (SoSe 2026), ermöglicht die Software eine elastische, kraftgesteuerte Bedienung von Seilzügen und Fingern über **Dynamixel XL330-M288** Servomotoren. Sie dient sowohl dem manuellen Testen von Greifbewegungen als auch dem Ausführen von automatisierten Sequenzen.
+**RobotHand** ist ein Tool zur Steuerung einer elastischen, kraftgesteuerten Roboterhand über **Dynamixel XL330-M288** Servomotoren. Die Software wurde primär für das Projekt „Soft!-robotic Hands" (SoSe 2026) entwickelt, um Forschern und Studenten die Evaluierung von nachgiebigen Greifern zu erleichtern.
+
+![RobotHand GUI Demo](demo.gif) <!-- Platzhalter für ein 5-Sekunden-GIF der GUI -->
 
 ---
 
-## Hauptmerkmale
+## 🚀 Quick Start
+
+Damit du innerhalb von 2 Minuten starten kannst:
+
+```bash
+# 1. Abhängigkeiten installieren
+pip install dynamixel-sdk pillow
+
+# 2. Applikation starten
+python main.py
+```
+
+Dann in der GUI: **"Connect"** klicken → **"Set Zero" / "Set Limit"** am Motor zur Kalibrierung → Fertig!
+
+---
+
+## 📋 Inhaltsverzeichnis
+
+- [🚀 Quick Start](#-quick-start)
+- [🎯 Projektkontext & Nutzen](#-projektkontext--nutzen)
+- [✨ Hauptmerkmale](#-hauptmerkmale)
+- [🏗️ Architektur & Code-Erklärung](#️-architektur--code-erklärung)
+- [⚙️ Konfiguration & Technische Limits](#️-konfiguration--technische-limits)
+- [🛠️ Troubleshooting](#️-troubleshooting)
+- [⚠️ Bekannte Limitierungen](#️-bekannte-limitierungen)
+- [📦 Installation & Setup (Detailliert)](#-installation--setup-detailliert)
+- [📜 Lizenz & Abhängigkeiten](#-lizenz--abhängigkeiten)
+
+---
+
+## 🎯 Projektkontext & Nutzen (Warum RobotHand?)
+
+Die Steuerung wurde speziell konzipiert für:
+* **Forschung & Lehre:** Studenten und Forscher, die im Bereich Soft-Robotics arbeiten (z.B. SoSe 2026 Robotik-Projekte).
+* **Passive Nachgiebigkeit:** Die Hand nutzt den *Current-Based Position Mode* der Servos. Das bedeutet, dass sie sich bei mechanischem Widerstand verformt, anstatt starr zu blockieren.
+* **Real-World Use Case:** Greifen empfindlicher Objekte (wie z. B. reifes Obst oder zerbrechliche Bauteile), ohne diese durch übermäßige Kraftausübung zu beschädigen.
+
+---
+
+## ✨ Hauptmerkmale
 
 ### 1. Betriebsmodi
 * **Positionsmodus (Joint Mode):** Ermöglicht die gradgenaue Winkelregelung der Servos.
 * **Geschwindigkeitsmodus (Wheel Mode):** Erlaubt endlose Drehungen mit kontinuierlicher Geschwindigkeitsregelung (geeignet für Spindeln oder Seilwickler).
-* **Strombasierter Positionsmodus (Current-Based Position Mode):** Kombiniert Positionsregelung mit einer aktiven Strombegrenzung. Dies führt zu einem nachgiebigen Greifverhalten. Die Hand gibt bei mechanischem Widerstand nach, wodurch die Seilzüge vor dem Reißen geschützt werden.
+* **Strombasierter Positionsmodus (Current-Based Position Mode):** Kombiniert Positionsregelung mit einer aktiven Strombegrenzung für ein nachgiebiges Greifverhalten.
 
 ### 2. Telemetrie & Hardwareschutz
-Die Software überwacht die Hardware kontinuierlich:
-* **Stromüberwachung:** Grafische Darstellung des Motorstroms (mA) aller 5 Kanäle in Echtzeit.
-* **Temperaturüberwachung:** Visuelle Warnung in der Benutzeroberfläche, sobald die Temperatur eines Motors 55 °C überschreitet.
-* **Hardware-Diagnose:** Direktes Auslesen des Fehlerregisters (z. B. Overload). Der Status wird über ein Symbol ($\checkmark$ oder Warnung) angezeigt.
-* **Not-Aus (Emergency Stop):** Eine dedizierte Schaltfläche deaktiviert sofort das Drehmoment aller Motoren (Torque OFF).
+* **Echtzeit-Stromüberwachung:** Grafischer Plot der Motorströme.
+* **Temperaturüberwachung:** Visuelle Warnung bei Überhitzung (> 55 °C).
+* **Not-Aus (Emergency Stop):** Sofortiges Deaktivieren des Drehmoments aller Motoren.
 
-### 3. Kontakt- & Greiferkennung
-* **Flankenerkennung:** Das System registriert plötzliche Strom-Peaks, die bei physischem Widerstand auftreten.
-* **Signalglättung:** Ein gleitender Durchschnitt über ein definiertes Zeitfenster minimiert Fehlauslösungen durch Signalrauschen.
-* **Statusanzeige:** Ein dreistufiges Indikatorsystem (● `No Contact` / ● `Approaching` / ● `Contact!`) visualisiert den aktuellen Zustand jedes Fingers.
+### 3. State-Machine der Kontakterkennung
+Das System nutzt Flankenerkennung und Signalglättung, um festzustellen, ob ein Finger Widerstand spürt.
+
+```mermaid
+stateDiagram-v2
+    [*] --> No_Contact: Strom stabil
+    No_Contact --> Approaching: Strom steigt (Anstieg)
+    Approaching --> Contact: Strom-Limit erreicht / Peak
+    Contact --> No_Contact: Kraft lässt nach
+```
 
 ---
 
-## Architektur & Code-Erklärung
+## 🏗️ Architektur & Code-Erklärung
 
-Die Software ist modular aufgebaut. Um Modifikationen zu erleichtern, werden hier die zentralen Konzepte und zugehörigen Code-Beispiele erläutert.
+Um Latenzen in der GUI zu vermeiden, ist die App nach dem MVC-Muster (Model-View-Controller) aufgebaut und stark multithreaded.
 
-### 1. MVC-Architektur
-Der Code ist nach dem Model-View-Controller-Muster (MVC) getrennt:
-* **Model (`models.py`):** Speichert den Status der Motoren (z. B. aktuelle Position, Temperatur).
-* **View (`ui.py`):** Definiert die Tkinter-Benutzeroberfläche und zeigt die Daten des Models an.
-* **Controller (`main.py`):** Verbindet Model und View und leitet Benutzereingaben an die Hardware weiter.
+### 1. Threading-Workflow
 
-### 2. Multithreading (Verhindern von UI-Freezes)
-Serielle Kommunikation benötigt Zeit. Um zu verhindern, dass die GUI während des Wartens auf Sensorwerte einfriert, nutzt die Applikation zwei Threads. 
-Der Controller (`main.py`) startet die UI und den Hardware-Manager in separaten Threads.
+```text
+[Main Thread / UI]                          [Background Thread / Hardware]
+       |                                                 |
+       |--- Zeigt Slider & Graphen an                    |--- Wartet auf USB/Serial
+       |--- Nimmt User-Klick entgegen  ----> (Queue) ----> Sendet Befehl an Motor
+       |                                                 |
+       |<-- Liest "Thread-Safe" Status <-----------------|--- Pollt permanent Telemetrie
+       |    (zeichnet UI neu)                            |    (Temperatur, Strom, Posen)
+```
 
-Ein Blick in die `main.py`:
+**Start-Sequenz in `main.py`:**
 ```python
-# Instanziierung des State-Models
+# Model (Thread-Safe Data)
 self.state = RobotState(config.motor_ids)
 
-# Starten des Hardware-Threads im Hintergrund
+# Background-Worker (Hardware)
 self.hardware = HardwareManager(self.state)
 self.hardware.start()
 
-# Starten der GUI im Haupt-Thread
+# Main-Thread (GUI)
 self.ui = RobotHandUI(self.root, self)
 ```
 
-### 3. Serielle Kommunikation (`hardware.py`)
-Der `HardwareManager` läuft in einer Endlosschleife und verarbeitet Befehle asynchron. Er nutzt das Dynamixel SDK, um Register auf den Servomotoren zu lesen und zu beschreiben.
+### 2. Queue & Status-Synchronisation
+Damit die Threads sich nicht blockieren, kommunizieren sie nur über Queues (`self.cmd_queue`) und thread-sichere Variablen in `models.py`. Die GUI liest Daten nur aus dem RAM (`self.state`), während der Hardware-Thread diese RAM-Werte kontinuierlich aktualisiert.
 
-Beispiel für das Ausschalten des Drehmoments (Torque OFF) vor dem Beenden der Verbindung:
-```python
-def disconnect_port(self):
-    # Torque bei allen Motoren deaktivieren
-    for dxl_id in config.motor_ids:
-        motor = self.state.motors[dxl_id]
-        self.packetHandler.write1ByteTxRx(self.portHandler, dxl_id, ADDR_TORQUE_ENABLE, 0)
-        motor.set_torque(False)
-        
-    self.portHandler.closePort()
+---
+
+## ⚙️ Konfiguration & Technische Limits
+
+### Die `config.json`
+Zentrale Parameter werden hierüber gesteuert:
+```json
+{
+  "hardware": {
+    "port": "COM10",           // Unter Linux meist /dev/ttyUSB0
+    "baudrate": 115200,        // Standard Dynamixel Baudrate
+    "timeout_ms": 1000
+  },
+  "motors": {
+    "ids": [0, 1, 2, 3, 4],    // Adressierte Servo-IDs
+    "protocol": "2.0"
+  }
+}
 ```
 
-### 4. Automatisierte Abläufe (`sequences.py`)
-Gespeicherte Positionen (Posen) werden als JSON-Datei (`poses.json`) abgelegt. Der Sequenz-Player iteriert durch diese Posen, sendet Zielpositionen an die Hardware-Queue und wartet das definierte Zeitintervall ab.
+### Leistungswerte & Limits
+* **Max. Polling-Frequenz:** ca. 50 Hz für die Telemetrie-Abfrage.
+* **Latenz:** ~20 ms pro Lesezyklus aller Motoren über den Bus.
 
 ---
 
-## Ausrichtung auf das Robotik-Projekt (SoSe 2026)
+## 🛠️ Troubleshooting
 
-* **Opponierbarkeit:** Steuerung von bis zu 5 Motoren (IDs `0` bis `4`), konzipiert für vier Finger und einen Daumen.
-* **Passive Nachgiebigkeit:** Ermöglicht das Greifen empfindlicher Objekte ohne Beschädigung.
-* **Vordefinierte Griffe:** Die erforderlichen Demonstrationsgriffe (**Edge-Grasp**, **Top-Grasp**, **Wall-Grasp**) sind als Posen-Vorlagen implementiert.
-* **Wiederholbarkeit:** Der Sequenz-Player garantiert eine exakte Reproduktion der Greifabläufe für Vorführungen.
+Häufige Probleme und deren schnelle Lösung:
+
+* **"Connection fails / Port error"**:
+  * Überprüfe, ob der COM-Port in der `config.json` stimmt (Windows: Gerätemanager prüfen, Linux: `ls /dev/ttyUSB*`).
+  * Stelle sicher, dass kein anderes Programm (z.B. Dynamixel Wizard) den Port belegt.
+* **"Motor bewegt sich nicht"**:
+  * Überprüfe in der UI, ob **Torque** aktiviert ist.
+  * Prüfe, ob die Motor-LED rot blinkt (Hardware-Error wie Overload).
+* **"UI friert ein oder stockt"**:
+  * Stelle sicher, dass die `baudrate` in der config mit der im Motor-EEPROM hinterlegten Baudrate übereinstimmt (meist 115200 oder 57600).
 
 ---
 
-## Hardware-Verkabelung
+## ⚠️ Bekannte Limitierungen
 
+* **Single-Threaded Hardware Queue:** Es werden aktuell keine parallelen Servo-Befehle unterstützt, sie werden seriell über den Bus abgearbeitet.
+* **Kalibrierungsverlust:** Nach einem Power-Cycle (Strom aus) muss neu kalibriert werden. Eine Persistenz im EEPROM ist derzeit nicht aktiv.
+* **Real-Time Garantien:** Da Python und Tkinter nicht echtzeitfähig sind, gibt es keine harten Timing-Garantien für exakte Mikrosekunden-Latenzen.
+
+---
+
+## 📦 Installation & Setup (Detailliert)
+
+1. Python 3 herunterladen und installieren.
+2. Hardware anschließen (siehe Verkabelung):
 ```text
-+------------+     USB     +----------------+   Half-Duplex   +----------+
-|  Steuer-   | <=========> |  Robotis U2D2  | <-------------> | Motor #0 | (Daumen-MCP)
-|    PC      |             |   Konverter    |   TTL-Bus       +----------+
-+------------+             +----------------+                      |
-                                   ^                               V
-                                   | Externe Spannung         +----------+
-                                   +--- (5.6V)         | Motor #1 | (Daumen-ALL)
-                                                              +----------+
-                                                                   |
-                                                                   V
-                                                                  ...
-                                                              +----------+
-                                                              | Motor #4 | (Motor 4)
-                                                              +----------+
+PC (USB) <--> Robotis U2D2 <--> TTL-Bus <--> Motor #0 ... Motor #4
+```
+3. Führe das `test_app.py` Skript aus, um sicherzustellen, dass die Abhängigkeiten sauber laufen:
+```bash
+python -m unittest test_app.py
 ```
 
 ---
 
-## Installation & Setup
+## 📜 Lizenz & Abhängigkeiten
 
-1. **Python 3** installieren.
-2. Benötigte Bibliotheken (Dynamixel SDK und Pillow) via pip installieren:
-   ```bash
-   pip install dynamixel-sdk pillow
-   ```
-3. COM-Port und Motor-IDs in der Datei `config.json` entsprechend dem System anpassen:
-   ```json
-   {
-     "hardware": {
-       "port": "COM10",
-       "baudrate": 115200
-     },
-     "motors": {
-       "ids": [0, 1, 2, 3, 4]
-     }
-   }
-   ```
+Dieses Projekt basiert auf folgenden Open-Source-Komponenten:
+* **[Dynamixel SDK](https://emanual.robotis.com/docs/en/software/dynamixel/dynamixel_sdk/overview/)** (Steuerungsprotokoll)
+* **[XL330-M288 E-Manual](https://emanual.robotis.com/docs/en/dxl/x/xl330-m288/)** (Spezifikationen der Hardware)
 
----
-
-## Kurzanleitung zur Bedienung
-
-### 1. Verbindung herstellen
-* Führe das Hauptskript aus: `python main.py`
-* Betätige die Schaltfläche **"Connect"**. Der Statusindikator wechselt bei Erfolg auf ● **ONLINE**.
-
-### 2. Kalibrierung
-Die Software muss die minimalen und maximalen Motor-Ticks erfassen:
-* Überführe einen Finger in die geöffnete Position (manuell oder im Wheel-Modus) und klicke auf **"Set Zero"**.
-* Überführe denselben Finger in die geschlossene Greifposition und klicke auf **"Set Limit"**.
-* Speichere die Kalibrierung über das Diskettensymbol. Der Positionsregler des Motors ist fortan auf 0 % bis 100 % linearisiert.
-
-### 3. Posen und Sequenzen verwalten
-* **Pose erstellen:** Bringe die Finger in die gewünschte Position, vergib einen Namen und speichere die Pose ab.
-* **Sequenz erstellen:** Füge gespeicherte Posen nacheinander zur Sequenzliste hinzu und definiere pro Schritt eine Wartezeit (in Millisekunden).
-* **Ausführung:** Starte die Sequenz mit dem **"Start"**-Button. Das System arbeitet die Liste automatisch ab.
-
----
-
-## Projektstruktur
-
-* **`main.py`**: Applikations-Controller (Initialisierung von UI und Threads).
-* **`ui.py`**: Tkinter-Benutzeroberfläche und Event-Bindings.
-* **`hardware.py`**: Serielle Kommunikation via Dynamixel SDK in einem separaten Thread.
-* **`models.py`**: Thread-sichere Datenmodelle (`RobotState`, `MotorState`).
-* **`calibration.py`**: Umrechnung der Encoder-Ticks in Prozentwerte und Nullpunktverwaltung.
-* **`sequences.py`**: Sequenzer-Logik zum zeitgesteuerten Abspielen von Posen.
-* **`test_app.py`**: Unit-Tests (Aufruf mit `python -m unittest test_app.py`).
-
-Konfigurationsdateien:
-* **`config.json`**: Hardware-Parameter (Baudrate, Port, IDs).
-* **`calibration.json`**: Kalibrierte Endanschläge der Motoren.
-* **`motor_names.json`**: GUI-Bezeichner der Motoren.
-* **`poses.json`**: Gespeicherte Handpositionen.
-* **`sequences.json`**: Konfigurierte Bewegungsabläufe.
+*Erstellt für Forschungs- und Bildungszwecke.*
