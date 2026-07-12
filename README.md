@@ -24,7 +24,17 @@ pip install dynamixel-sdk pillow
 python main.py
 ```
 
-Dann in der GUI: **"Connect"** klicken → **"Set Zero" / "Set Limit"** am Motor zur Kalibrierung → Fertig!
+Dann in der GUI: **"Connect"** klicken.
+
+### 📏 Detaillierte Kalibrierungs-Anleitung
+Damit die Software weiß, wo "offen" und wo "geschlossen" ist, müssen die Encoder-Werte angelernt werden:
+1. Bringe einen Finger (z.B. per Hand im abgeschalteten Torque-Modus oder über den endlosen Wheel-Modus) in die **maximal geöffnete** Position.
+2. Klicke bei diesem Motor in der GUI auf **"Set Zero"**.
+3. Bringe denselben Finger in die **geschlossene Greifposition**.
+4. Klicke auf **"Set Limit"**.
+5. Klicke oben rechts auf das **Disketten-Symbol**, um die Kalibrierung in die `calibration.json` zu speichern.
+
+Der Positionsregler dieses Motors skaliert ab sofort exakt und linear von 0 % bis 100 %.
 
 ---
 
@@ -37,6 +47,7 @@ Dann in der GUI: **"Connect"** klicken → **"Set Zero" / "Set Limit"** am Motor
 - [⚙️ Konfiguration & Technische Limits](#️-konfiguration--technische-limits)
 - [🛠️ Troubleshooting](#️-troubleshooting)
 - [⚠️ Bekannte Limitierungen](#️-bekannte-limitierungen)
+- [📂 Projektstruktur](#-projektstruktur)
 - [📦 Installation & Setup (Detailliert)](#-installation--setup-detailliert)
 - [📜 Lizenz & Abhängigkeiten](#-lizenz--abhängigkeiten)
 
@@ -154,6 +165,25 @@ Häufige Probleme und deren schnelle Lösung:
 * **Single-Threaded Hardware Queue:** Es werden aktuell keine parallelen Servo-Befehle unterstützt, sie werden seriell über den Bus abgearbeitet.
 * **Kalibrierungsverlust:** Nach einem Power-Cycle (Strom aus) muss neu kalibriert werden. Eine Persistenz im EEPROM ist derzeit nicht aktiv.
 * **Real-Time Garantien:** Da Python und Tkinter nicht echtzeitfähig sind, gibt es keine harten Timing-Garantien für exakte Mikrosekunden-Latenzen.
+
+---
+
+## 📂 Projektstruktur
+
+* **`main.py`**: Controller (initialisiert UI und Hardware-Threads)
+* **`ui.py`**: Tkinter-GUI und Event-Handling
+* **`hardware.py`**: HardwareManager (serielle Kommunikation, Polling)
+* **`models.py`**: Thread-sichere Datenmodelle (`RobotState`, `MotorState`)
+* **`calibration.py`**: Encoder-Ticks ↔ Prozentwerte
+* **`sequences.py`**: Sequenzer für zeitgesteuerte Bewegungsabläufe
+* **`test_app.py`**: Unit-Tests
+
+**Konfigurationsdateien:**
+* `config.json` – Hardware (Port, Baudrate, Motor-IDs)
+* `calibration.json` – Kalibrierte Endanschläge
+* `motor_names.json` – GUI-Bezeichner
+* `poses.json` – Gespeicherte Handpositionen
+* `sequences.json` – Bewegungsabläufe
 
 ---
 
