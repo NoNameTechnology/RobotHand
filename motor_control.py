@@ -91,6 +91,13 @@ class DynamixelSquadApp:
         self.is_connected = False
         self.serial_mutex = False
         self.last_master_val = 0.0
+        # Slider callbacks can arrive much faster than a Dynamixel bus can
+        # acknowledge position writes.  Keep only the newest request per motor
+        # and transmit it at a bounded rate instead of flooding the bus.
+        self._pending_slider_targets = {}
+        self._slider_send_jobs = {}
+        self._last_slider_targets = {}
+        self._slider_send_interval_ms = 25
 
         # State Variables
         self.torque_vars = {}
@@ -2528,6 +2535,10 @@ class DynamixelSquadApp:
         self.serial_mutex = True
         enable = 1 if self.torque_vars[dxl_id].get() else 0
         self.packetHandler.write1ByteTxRx(self.portHandler, dxl_id, ADDR_TORQUE_ENABLE, enable)
+        if enable:
+            # The first slider action after re-enabling torque must always be
+            # sent, even if it happens to match the last target.
+            self._last_slider_targets.pop(dxl_id, None)
         
         if enable and self.mode_vars[dxl_id].get():
             self.packetHandler.write4ByteTxRx(self.portHandler, dxl_id, ADDR_GOAL_VELOCITY, 0)
@@ -2568,6 +2579,9 @@ class DynamixelSquadApp:
         if self.mode_vars[dxl_id].get():
             self.slider_vars[dxl_id].set(0)            
             self.on_indiv_slider_move(dxl_id, 0)
+        else:
+            # Do not leave the final mouse position waiting for the next timer.
+            self._flush_indiv_slider_command(dxl_id, force=True)
 
     def on_current_slider_release(self, event, dxl_id):
         if not self.is_connected: return
@@ -2589,17 +2603,58 @@ class DynamixelSquadApp:
         # Soft-Grip: Unfreeze wenn User manuell bewegt
         self.soft_grip_frozen[dxl_id] = False
         
-        self.serial_mutex = True
         target = int(float(val))
-        
-        if self.mode_vars[dxl_id].get():
-            write_val = target & 0xFFFFFFFF 
-            self.packetHandler.write4ByteTxRx(self.portHandler, dxl_id, ADDR_GOAL_VELOCITY, write_val)
-            self.readout_labels[dxl_id].config(text=f"Spd: {target}")
-        else:
-            self.write_goal_position(dxl_id, target)
-            
-        self.serial_mutex = False
+        self._pending_slider_targets[dxl_id] = target
+
+        # Schedule at most one pending transmission for this motor.  A rapid
+        # drag merely replaces its target, so the motor receives the latest
+        # position without a backlog of stale commands.
+        if dxl_id not in self._slider_send_jobs:
+            self._slider_send_jobs[dxl_id] = self.root.after(
+                self._slider_send_interval_ms,
+                lambda did=dxl_id: self._flush_indiv_slider_command(did)
+            )
+
+    def _flush_indiv_slider_command(self, dxl_id, force=False):
+        """Send the latest queued individual-slider command safely."""
+        job = self._slider_send_jobs.pop(dxl_id, None)
+        if force and job is not None:
+            try:
+                self.root.after_cancel(job)
+            except tk.TclError:
+                pass
+
+        if (not self.is_connected or not self.torque_vars[dxl_id].get()
+                or self.is_playing or dxl_id not in self._pending_slider_targets):
+            self._pending_slider_targets.pop(dxl_id, None)
+            return
+
+        # A telemetry or configuration operation owns the bus; retry shortly
+        # instead of interleaving packet traffic.
+        if self.serial_mutex:
+            self._slider_send_jobs[dxl_id] = self.root.after(
+                10, lambda did=dxl_id: self._flush_indiv_slider_command(did)
+            )
+            return
+
+        target = self._pending_slider_targets.pop(dxl_id)
+        mode_is_velocity = self.mode_vars[dxl_id].get()
+        command_key = (mode_is_velocity, target)
+        if not force and self._last_slider_targets.get(dxl_id) == command_key:
+            return
+
+        self.serial_mutex = True
+        try:
+            if mode_is_velocity:
+                self.packetHandler.write4ByteTxRx(
+                    self.portHandler, dxl_id, ADDR_GOAL_VELOCITY, target & 0xFFFFFFFF
+                )
+                self.readout_labels[dxl_id].config(text=f"Spd: {target}")
+            else:
+                self.write_goal_position(dxl_id, target)
+            self._last_slider_targets[dxl_id] = command_key
+        finally:
+            self.serial_mutex = False
 
     def on_master_slider_move(self, val):
         new_val = float(val)
@@ -2638,23 +2693,39 @@ class DynamixelSquadApp:
                 self.slider_vars[dxl_id].set(target_pos)
                 self.soft_grip_frozen[dxl_id] = False  # Unfreeze bei Master-Bewegung
                 
-                if self.torque_vars[dxl_id].get():
-                    offset = self.reboot_offsets.get(dxl_id, 0)
-                    raw_pos = int(target_pos - offset) & 0xFFFFFFFF
-                    param_pos = [
-                        raw_pos & 0xFF,
-                        (raw_pos >> 8) & 0xFF,
-                        (raw_pos >> 16) & 0xFF,
-                        (raw_pos >> 24) & 0xFF
-                    ]
-                    self.sync_write_pos.addParam(dxl_id, param_pos)
-                    has_targets = True
-                    
-        if has_targets:
-            self.sync_write_pos.txPacket()
+        if not getattr(self, '_master_sync_pending', False):
+            self._master_sync_pending = True
+            self.root.after(20, self._transmit_master_sync)
 
         self.serial_mutex = False
         self.is_programmatic_change = False
+
+    def _transmit_master_sync(self):
+        self._master_sync_pending = False
+        if not self.is_connected: return
+        
+        self.serial_mutex = True
+        self.sync_write_pos.clearParam()
+        has_targets = False
+        
+        for dxl_id in MOTOR_IDS:
+            if self.sync_vars[dxl_id].get() and not self.mode_vars[dxl_id].get() and self.torque_vars[dxl_id].get():
+                target_pos = self.slider_vars[dxl_id].get()
+                offset = self.reboot_offsets.get(dxl_id, 0)
+                raw_pos = int(target_pos - offset) & 0xFFFFFFFF
+                param_pos = [
+                    raw_pos & 0xFF,
+                    (raw_pos >> 8) & 0xFF,
+                    (raw_pos >> 16) & 0xFF,
+                    (raw_pos >> 24) & 0xFF
+                ]
+                self.sync_write_pos.addParam(dxl_id, param_pos)
+                has_targets = True
+                
+        if has_targets:
+            self.sync_write_pos.txPacket()
+            
+        self.serial_mutex = False
 
     def on_master_slider_release(self, event):
         self.is_programmatic_change = True
