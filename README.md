@@ -16,10 +16,15 @@
 Damit du innerhalb von 2 Minuten starten kannst:
 
 ```bash
-# 1. Abhängigkeiten installieren
-pip install dynamixel-sdk pillow
+# 1. Virtuelles Environment erstellen & aktivieren
+python -m venv .venv
+# Windows: .venv\Scripts\activate
+# Linux/Mac: source .venv/bin/activate
 
-# 2. Applikation starten
+# 2. Abhängigkeiten installieren
+pip install -r requirements.txt
+
+# 3. Applikation starten
 python main.py
 ```
 

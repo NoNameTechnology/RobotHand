@@ -12,9 +12,15 @@ While the main `README.md` is written in German, the application itself is desig
 
 To get the development environment running:
 
-1. **Install dependencies:**
+1. **Set up virtual environment & install dependencies:**
    ```bash
-   pip install dynamixel-sdk pillow
+   python -m venv .venv
+   # Windows:
+   .venv\Scripts\activate
+   # Linux/Mac:
+   # source .venv/bin/activate
+   
+   pip install -r requirements.txt
    ```
 
 2. **Run tests:** 
