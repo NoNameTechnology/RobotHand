@@ -90,6 +90,7 @@ class DynamixelSquadApp:
         
         self.is_connected = False
         self.serial_mutex = False
+        self._mutex_busy_cycles = 0  # Watchdog: counts consecutive telemetry ticks where the bus lock was held
         self.last_master_val = 0.0
         # Slider callbacks can arrive much faster than a Dynamixel bus can
         # acknowledge position writes.  Keep only the newest request per motor
@@ -927,15 +928,24 @@ class DynamixelSquadApp:
             if not self.ensure_torque_enabled([dxl_id]): return
             if self.torque_vars[dxl_id].get() and not self.mode_vars[dxl_id].get():
                 self.serial_mutex = True
-                self.write_goal_position(dxl_id, target_pos)
-                self.slider_vars[dxl_id].set(target_pos)
-                self.soft_grip_frozen[dxl_id] = False
-                self.serial_mutex = False
+                try:
+                    self.write_goal_position(dxl_id, target_pos)
+                    self.slider_vars[dxl_id].set(target_pos)
+                    self.soft_grip_frozen[dxl_id] = False
+                except Exception as e:
+                    print(f"Fehler beim Anfahren der Kalibrierposition (ID {dxl_id}): {e}")
+                finally:
+                    self.serial_mutex = False
             return
 
         self.serial_mutex = True
-        pos, res, _ = self.read_present_position(dxl_id)
-        self.serial_mutex = False
+        try:
+            pos, res, _ = self.read_present_position(dxl_id)
+        except Exception as e:
+            print(f"Fehler beim Lesen der Position (ID {dxl_id}): {e}")
+            return
+        finally:
+            self.serial_mutex = False
         
         if res != COMM_SUCCESS:
             print(f"Fehler beim Lesen der Position für ID {dxl_id}")
@@ -1173,34 +1183,38 @@ class DynamixelSquadApp:
         
         self.is_programmatic_change = True
         self.serial_mutex = True
-        self.sync_write_pos.clearParam()
-        has_targets = False
-        
-        for dxl_id in MOTOR_IDS:
-            zero_pos = self.calib_zero[dxl_id]
-            if (not self.mode_vars[dxl_id].get() and self.torque_vars[dxl_id].get()
-                    and zero_pos is not None and self.sync_vars[dxl_id].get()):
-                self.slider_vars[dxl_id].set(zero_pos)
-                self.soft_grip_frozen[dxl_id] = False  # Unfreeze bei Home
-                
-                offset = self.reboot_offsets.get(dxl_id, 0)
-                raw_pos = int(zero_pos - offset) & 0xFFFFFFFF
-                param_pos = [
-                    raw_pos & 0xFF,
-                    (raw_pos >> 8) & 0xFF,
-                    (raw_pos >> 16) & 0xFF,
-                    (raw_pos >> 24) & 0xFF
-                ]
-                self.sync_write_pos.addParam(dxl_id, param_pos)
-                has_targets = True
-                
-        if has_targets:
-            self.sync_write_pos.txPacket()
-                
-        self.master_slider_var.set(0.0)
-        self.lbl_master_pos.config(text="0.0 %")
-        self.serial_mutex = False
-        self.is_programmatic_change = False
+        try:
+            self.sync_write_pos.clearParam()
+            has_targets = False
+
+            for dxl_id in MOTOR_IDS:
+                zero_pos = self.calib_zero[dxl_id]
+                if (not self.mode_vars[dxl_id].get() and self.torque_vars[dxl_id].get()
+                        and zero_pos is not None and self.sync_vars[dxl_id].get()):
+                    self.slider_vars[dxl_id].set(zero_pos)
+                    self.soft_grip_frozen[dxl_id] = False  # Unfreeze bei Home
+
+                    offset = self.reboot_offsets.get(dxl_id, 0)
+                    raw_pos = int(zero_pos - offset) & 0xFFFFFFFF
+                    param_pos = [
+                        raw_pos & 0xFF,
+                        (raw_pos >> 8) & 0xFF,
+                        (raw_pos >> 16) & 0xFF,
+                        (raw_pos >> 24) & 0xFF
+                    ]
+                    self.sync_write_pos.addParam(dxl_id, param_pos)
+                    has_targets = True
+
+            if has_targets:
+                self.sync_write_pos.txPacket()
+
+            self.master_slider_var.set(0.0)
+            self.lbl_master_pos.config(text="0.0 %")
+        except Exception as e:
+            print(f"Fehler bei Home-Bewegung: {e}")
+        finally:
+            self.serial_mutex = False
+            self.is_programmatic_change = False
 
     def load_poses_from_file(self):
         if os.path.exists("poses.json"):
@@ -1274,6 +1288,15 @@ class DynamixelSquadApp:
     def apply_state(self, state):
         self.is_programmatic_change = True
         self.serial_mutex = True
+        try:
+            self._apply_state_locked(state)
+        except Exception as e:
+            print(f"Fehler beim Anwenden des Zustands: {e}")
+        finally:
+            self.serial_mutex = False
+            self.is_programmatic_change = False
+
+    def _apply_state_locked(self, state):
         pose = state.get("pose", {})
         limits = state.get("limits", {})
         velocities = state.get("velocities", {})
@@ -1361,9 +1384,6 @@ class DynamixelSquadApp:
             self.sync_write_profile_vel.txPacket()
         if has_pos:
             self.sync_write_pos.txPacket()
-            
-        self.serial_mutex = False
-        self.is_programmatic_change = False
 
     def get_wait_settings(self):
         try:
@@ -2212,19 +2232,22 @@ class DynamixelSquadApp:
                 messagebox.showerror("Connection Failed", str(e))
         else:
             self.is_connected = False
-            self.serial_mutex = True 
+            self.serial_mutex = True
+            try:
+                for dxl_id in MOTOR_IDS:
+                    if self.mode_vars[dxl_id].get():
+                        self.packetHandler.write4ByteTxRx(self.portHandler, dxl_id, ADDR_GOAL_VELOCITY, 0)
 
-            for dxl_id in MOTOR_IDS:
-                if self.mode_vars[dxl_id].get():
-                    self.packetHandler.write4ByteTxRx(self.portHandler, dxl_id, ADDR_GOAL_VELOCITY, 0)
-                
-                self.packetHandler.write1ByteTxRx(self.portHandler, dxl_id, ADDR_TORQUE_ENABLE, 0)
-                self.torque_vars[dxl_id].set(False)
+                    self.packetHandler.write1ByteTxRx(self.portHandler, dxl_id, ADDR_TORQUE_ENABLE, 0)
+                    self.torque_vars[dxl_id].set(False)
 
-            self.portHandler.closePort()
-            self.lbl_status.config(text="⬤ OFFLINE", foreground=self.ACCENT_RED)
-            self.btn_connect.config(text=f"Connect ({COM_PORT})")
-            self.serial_mutex = False
+                self.portHandler.closePort()
+                self.lbl_status.config(text="⬤ OFFLINE", foreground=self.ACCENT_RED)
+                self.btn_connect.config(text=f"Connect ({COM_PORT})")
+            except Exception as e:
+                print(f"Fehler beim Trennen der Verbindung: {e}")
+            finally:
+                self.serial_mutex = False
 
     def emergency_stop(self):
         if not self.is_connected: return
@@ -2288,11 +2311,15 @@ class DynamixelSquadApp:
         
         self.serial_mutex = True
         found = []
-        for test_id in range(21):
-            model, res, _ = self.packetHandler.ping(self.portHandler, test_id)
-            if res == COMM_SUCCESS:
-                found.append(test_id)
-        self.serial_mutex = False
+        try:
+            for test_id in range(21):
+                model, res, _ = self.packetHandler.ping(self.portHandler, test_id)
+                if res == COMM_SUCCESS:
+                    found.append(test_id)
+        except Exception as e:
+            print(f"Fehler beim Scannen der Motoren: {e}")
+        finally:
+            self.serial_mutex = False
         
         if found:
             ids_str = ", ".join(str(i) for i in found)
@@ -2494,85 +2521,92 @@ class DynamixelSquadApp:
             return
             
         self.serial_mutex = True
-        
-        # Torque aus zur Sicherheit
-        self.packetHandler.write1ByteTxRx(self.portHandler, dxl_id, ADDR_TORQUE_ENABLE, 0)
-        self.torque_vars[dxl_id].set(False)
-        
-        # SDK Reboot command
-        res, error = self.packetHandler.reboot(self.portHandler, dxl_id)
-        
-        if res == COMM_SUCCESS:
-            print(f"Motor {dxl_id} erfolgreich neugestartet.")
-            self.error_labels[dxl_id].config(text="✓", fg=self.ACCENT_GREEN)
-            
-            # Kurze Pause damit der Motor wieder online kommt
-            self.root.update()
-            time.sleep(0.5)
-            
-            # RAM-Parameter wiederherstellen, da diese beim Reboot gelöscht werden
-            mode_val = OP_MODE_VELOCITY if self.mode_vars[dxl_id].get() else OP_MODE_CURRENT_BASED_POSITION
-            self.packetHandler.write1ByteTxRx(self.portHandler, dxl_id, ADDR_OPERATING_MODE, mode_val)
-            
-            limit_val = self.current_vars[dxl_id].get()
-            self.packetHandler.write2ByteTxRx(self.portHandler, dxl_id, ADDR_GOAL_CURRENT, limit_val)
-            
-            master_vel_percent = self.master_vel_var.get()
-            hardware_vel = int((master_vel_percent / 100.0) * 300) if master_vel_percent < 100 else 0
-            if hardware_vel == 0 and master_vel_percent < 100: hardware_vel = 1
-            self.packetHandler.write4ByteTxRx(self.portHandler, dxl_id, ADDR_PROFILE_VELOCITY, hardware_vel)
-            self.packetHandler.write4ByteTxRx(self.portHandler, dxl_id, ADDR_PROFILE_ACCELERATION, 100)
-            self.calculate_reboot_offset(dxl_id)
-            
-        else:
-            print(f"Fehler beim Neustart von Motor {dxl_id}: {self.packetHandler.getTxRxResult(res)}")
-            messagebox.showerror("Reboot Failed", f"Motor {dxl_id} konnte nicht neu gestartet werden.")
-            
-        self.serial_mutex = False
+        try:
+            # Torque aus zur Sicherheit
+            self.packetHandler.write1ByteTxRx(self.portHandler, dxl_id, ADDR_TORQUE_ENABLE, 0)
+            self.torque_vars[dxl_id].set(False)
+
+            # SDK Reboot command
+            res, error = self.packetHandler.reboot(self.portHandler, dxl_id)
+
+            if res == COMM_SUCCESS:
+                print(f"Motor {dxl_id} erfolgreich neugestartet.")
+                self.error_labels[dxl_id].config(text="✓", fg=self.ACCENT_GREEN)
+
+                # Kurze Pause damit der Motor wieder online kommt
+                self.root.update()
+                time.sleep(0.5)
+
+                # RAM-Parameter wiederherstellen, da diese beim Reboot gelöscht werden
+                mode_val = OP_MODE_VELOCITY if self.mode_vars[dxl_id].get() else OP_MODE_CURRENT_BASED_POSITION
+                self.packetHandler.write1ByteTxRx(self.portHandler, dxl_id, ADDR_OPERATING_MODE, mode_val)
+
+                limit_val = self.current_vars[dxl_id].get()
+                self.packetHandler.write2ByteTxRx(self.portHandler, dxl_id, ADDR_GOAL_CURRENT, limit_val)
+
+                master_vel_percent = self.master_vel_var.get()
+                hardware_vel = int((master_vel_percent / 100.0) * 300) if master_vel_percent < 100 else 0
+                if hardware_vel == 0 and master_vel_percent < 100: hardware_vel = 1
+                self.packetHandler.write4ByteTxRx(self.portHandler, dxl_id, ADDR_PROFILE_VELOCITY, hardware_vel)
+                self.packetHandler.write4ByteTxRx(self.portHandler, dxl_id, ADDR_PROFILE_ACCELERATION, 100)
+                self.calculate_reboot_offset(dxl_id)
+
+            else:
+                print(f"Fehler beim Neustart von Motor {dxl_id}: {self.packetHandler.getTxRxResult(res)}")
+                messagebox.showerror("Reboot Failed", f"Motor {dxl_id} konnte nicht neu gestartet werden.")
+        except Exception as e:
+            print(f"Fehler beim Neustart von Motor {dxl_id}: {e}")
+        finally:
+            self.serial_mutex = False
 
     def on_torque_check(self, dxl_id):
         if not self.is_connected: return
         self.serial_mutex = True
-        enable = 1 if self.torque_vars[dxl_id].get() else 0
-        self.packetHandler.write1ByteTxRx(self.portHandler, dxl_id, ADDR_TORQUE_ENABLE, enable)
-        if enable:
-            # The first slider action after re-enabling torque must always be
-            # sent, even if it happens to match the last target.
-            self._last_slider_targets.pop(dxl_id, None)
-        
-        if enable and self.mode_vars[dxl_id].get():
-            self.packetHandler.write4ByteTxRx(self.portHandler, dxl_id, ADDR_GOAL_VELOCITY, 0)
-            self.slider_vars[dxl_id].set(0)
-            
-        self.serial_mutex = False
+        try:
+            enable = 1 if self.torque_vars[dxl_id].get() else 0
+            self.packetHandler.write1ByteTxRx(self.portHandler, dxl_id, ADDR_TORQUE_ENABLE, enable)
+            if enable:
+                # The first slider action after re-enabling torque must always be
+                # sent, even if it happens to match the last target.
+                self._last_slider_targets.pop(dxl_id, None)
+
+            if enable and self.mode_vars[dxl_id].get():
+                self.packetHandler.write4ByteTxRx(self.portHandler, dxl_id, ADDR_GOAL_VELOCITY, 0)
+                self.slider_vars[dxl_id].set(0)
+        except Exception as e:
+            print(f"Fehler beim Umschalten von Torque (ID {dxl_id}): {e}")
+        finally:
+            self.serial_mutex = False
 
     def on_mode_toggle(self, dxl_id):
         if not self.is_connected: return
         self.serial_mutex = True
-        
-        is_endless = self.mode_vars[dxl_id].get()
-        was_torque_on = self.torque_vars[dxl_id].get()
+        try:
+            is_endless = self.mode_vars[dxl_id].get()
+            was_torque_on = self.torque_vars[dxl_id].get()
 
-        if was_torque_on:
-            self.packetHandler.write1ByteTxRx(self.portHandler, dxl_id, ADDR_TORQUE_ENABLE, 0)
+            if was_torque_on:
+                self.packetHandler.write1ByteTxRx(self.portHandler, dxl_id, ADDR_TORQUE_ENABLE, 0)
 
-        if is_endless:
-            self.packetHandler.write1ByteTxRx(self.portHandler, dxl_id,
-                                             ADDR_OPERATING_MODE, OP_MODE_VELOCITY)
-            self.ui_indiv_sliders[dxl_id].config(state=tk.NORMAL, from_=MIN_VEL_LIMIT, to=MAX_VEL_LIMIT)
-            self.slider_vars[dxl_id].set(0) 
-        else:
-            self.packetHandler.write1ByteTxRx(self.portHandler, dxl_id,
-                                             ADDR_OPERATING_MODE, OP_MODE_CURRENT_BASED_POSITION)
-            if self.calib_zero[dxl_id] is not None and self.calib_limit[dxl_id] is not None:
-                self.check_calibration_status(dxl_id)
+            if is_endless:
+                self.packetHandler.write1ByteTxRx(self.portHandler, dxl_id,
+                                                 ADDR_OPERATING_MODE, OP_MODE_VELOCITY)
+                self.ui_indiv_sliders[dxl_id].config(state=tk.NORMAL, from_=MIN_VEL_LIMIT, to=MAX_VEL_LIMIT)
+                self.slider_vars[dxl_id].set(0)
             else:
-                self.ui_indiv_sliders[dxl_id].config(state=tk.DISABLED)
+                self.packetHandler.write1ByteTxRx(self.portHandler, dxl_id,
+                                                 ADDR_OPERATING_MODE, OP_MODE_CURRENT_BASED_POSITION)
+                if self.calib_zero[dxl_id] is not None and self.calib_limit[dxl_id] is not None:
+                    self.check_calibration_status(dxl_id)
+                else:
+                    self.ui_indiv_sliders[dxl_id].config(state=tk.DISABLED)
 
-        if was_torque_on:
-            self.packetHandler.write1ByteTxRx(self.portHandler, dxl_id, ADDR_TORQUE_ENABLE, 1)
-
-        self.serial_mutex = False
+            if was_torque_on:
+                self.packetHandler.write1ByteTxRx(self.portHandler, dxl_id, ADDR_TORQUE_ENABLE, 1)
+        except Exception as e:
+            print(f"Fehler beim Wechseln des Modus (ID {dxl_id}): {e}")
+        finally:
+            self.serial_mutex = False
 
     def on_slider_release(self, event, dxl_id):
         if not self.is_connected or not self.torque_vars[dxl_id].get(): return
@@ -2591,10 +2625,14 @@ class DynamixelSquadApp:
     def on_current_slider_move(self, dxl_id, val):
         if not self.is_connected: return
         self.serial_mutex = True
-        target = int(float(val))
-        self.current_labels[dxl_id].config(text=f"{target}")
-        self.packetHandler.write2ByteTxRx(self.portHandler, dxl_id, ADDR_GOAL_CURRENT, target)
-        self.serial_mutex = False
+        try:
+            target = int(float(val))
+            self.current_labels[dxl_id].config(text=f"{target}")
+            self.packetHandler.write2ByteTxRx(self.portHandler, dxl_id, ADDR_GOAL_CURRENT, target)
+        except Exception as e:
+            print(f"Fehler beim Senden des Strom-Limits (ID {dxl_id}): {e}")
+        finally:
+            self.serial_mutex = False
 
     def on_indiv_slider_move(self, dxl_id, val):
         if getattr(self, 'is_programmatic_change', False): return
@@ -2653,6 +2691,8 @@ class DynamixelSquadApp:
             else:
                 self.write_goal_position(dxl_id, target)
             self._last_slider_targets[dxl_id] = command_key
+        except Exception as e:
+            print(f"Fehler beim Senden der Slider-Position (ID {dxl_id}): {e}")
         finally:
             self.serial_mutex = False
 
@@ -2671,61 +2711,66 @@ class DynamixelSquadApp:
         
         self.is_programmatic_change = True
         self.serial_mutex = True
-        self.lbl_master_pos.config(text=f"{new_val:.1f} %")
+        try:
+            self.lbl_master_pos.config(text=f"{new_val:.1f} %")
 
-        self.sync_write_pos.clearParam()
-        has_targets = False
+            self.sync_write_pos.clearParam()
 
-        for dxl_id in MOTOR_IDS:
-            c_zero = self.calib_zero[dxl_id]
-            c_limit = self.calib_limit[dxl_id]
-            
-            if (self.sync_vars[dxl_id].get() and not self.mode_vars[dxl_id].get()
-                    and c_zero is not None and c_limit is not None):
-                current_pos = self.slider_vars[dxl_id].get()
-                range_ticks = c_limit - c_zero
-                target_pos = int(current_pos + delta_pct * range_ticks)
-                
-                min_pos = min(c_zero, c_limit)
-                max_pos = max(c_zero, c_limit)
-                target_pos = max(min_pos, min(max_pos, target_pos))
+            for dxl_id in MOTOR_IDS:
+                c_zero = self.calib_zero[dxl_id]
+                c_limit = self.calib_limit[dxl_id]
 
-                self.slider_vars[dxl_id].set(target_pos)
-                self.soft_grip_frozen[dxl_id] = False  # Unfreeze bei Master-Bewegung
-                
-        if not getattr(self, '_master_sync_pending', False):
-            self._master_sync_pending = True
-            self.root.after(20, self._transmit_master_sync)
+                if (self.sync_vars[dxl_id].get() and not self.mode_vars[dxl_id].get()
+                        and c_zero is not None and c_limit is not None):
+                    current_pos = self.slider_vars[dxl_id].get()
+                    range_ticks = c_limit - c_zero
+                    target_pos = int(current_pos + delta_pct * range_ticks)
 
-        self.serial_mutex = False
-        self.is_programmatic_change = False
+                    min_pos = min(c_zero, c_limit)
+                    max_pos = max(c_zero, c_limit)
+                    target_pos = max(min_pos, min(max_pos, target_pos))
+
+                    self.slider_vars[dxl_id].set(target_pos)
+                    self.soft_grip_frozen[dxl_id] = False  # Unfreeze bei Master-Bewegung
+
+            if not getattr(self, '_master_sync_pending', False):
+                self._master_sync_pending = True
+                self.root.after(20, self._transmit_master_sync)
+        except Exception as e:
+            print(f"Fehler bei Master-Slider-Bewegung: {e}")
+        finally:
+            self.serial_mutex = False
+            self.is_programmatic_change = False
 
     def _transmit_master_sync(self):
         self._master_sync_pending = False
         if not self.is_connected: return
         
         self.serial_mutex = True
-        self.sync_write_pos.clearParam()
-        has_targets = False
-        
-        for dxl_id in MOTOR_IDS:
-            if self.sync_vars[dxl_id].get() and not self.mode_vars[dxl_id].get() and self.torque_vars[dxl_id].get():
-                target_pos = self.slider_vars[dxl_id].get()
-                offset = self.reboot_offsets.get(dxl_id, 0)
-                raw_pos = int(target_pos - offset) & 0xFFFFFFFF
-                param_pos = [
-                    raw_pos & 0xFF,
-                    (raw_pos >> 8) & 0xFF,
-                    (raw_pos >> 16) & 0xFF,
-                    (raw_pos >> 24) & 0xFF
-                ]
-                self.sync_write_pos.addParam(dxl_id, param_pos)
-                has_targets = True
-                
-        if has_targets:
-            self.sync_write_pos.txPacket()
-            
-        self.serial_mutex = False
+        try:
+            self.sync_write_pos.clearParam()
+            has_targets = False
+
+            for dxl_id in MOTOR_IDS:
+                if self.sync_vars[dxl_id].get() and not self.mode_vars[dxl_id].get() and self.torque_vars[dxl_id].get():
+                    target_pos = self.slider_vars[dxl_id].get()
+                    offset = self.reboot_offsets.get(dxl_id, 0)
+                    raw_pos = int(target_pos - offset) & 0xFFFFFFFF
+                    param_pos = [
+                        raw_pos & 0xFF,
+                        (raw_pos >> 8) & 0xFF,
+                        (raw_pos >> 16) & 0xFF,
+                        (raw_pos >> 24) & 0xFF
+                    ]
+                    self.sync_write_pos.addParam(dxl_id, param_pos)
+                    has_targets = True
+
+            if has_targets:
+                self.sync_write_pos.txPacket()
+        except Exception as e:
+            print(f"Fehler beim Senden der Master-Sync Position: {e}")
+        finally:
+            self.serial_mutex = False
 
     def on_master_slider_release(self, event):
         self.is_programmatic_change = True
@@ -2766,6 +2811,20 @@ class DynamixelSquadApp:
 
     def async_telemetry_scanner(self):
         if not self.is_connected: return
+
+        if self.serial_mutex:
+            # Watchdog: if some code path left the bus lock held (e.g. an
+            # unexpected comm exception before a fix/finally could run), the
+            # whole UI would otherwise appear "frozen" until Torque is
+            # manually toggled. Auto-release after ~1s (10 ticks @ 100ms) so
+            # it self-heals instead.
+            self._mutex_busy_cycles += 1
+            if self._mutex_busy_cycles > 10:
+                print("[WATCHDOG] serial_mutex war zu lange blockiert - wird zurückgesetzt.")
+                self.serial_mutex = False
+                self._mutex_busy_cycles = 0
+        else:
+            self._mutex_busy_cycles = 0
 
         if not self.serial_mutex:
             self.serial_mutex = True
