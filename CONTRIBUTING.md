@@ -23,15 +23,9 @@ To get the development environment running:
    pip install -r requirements.txt
    ```
 
-2. **Run tests:** 
-   Before making changes, ensure the base application passes all unit tests. This ensures your local environment is set up correctly:
+2. **Run the app:**
    ```bash
-   python -m unittest test_app.py
-   ```
-
-3. **Run the app:**
-   ```bash
-   python main.py
+   python motor_control.py
    ```
 
 ## 🛠️ How to Contribute
@@ -39,9 +33,8 @@ To get the development environment running:
 ### 1. Reporting Bugs
 If you find a bug, please create an Issue in the repository and include:
 - Your operating system and Python version.
-- The `config.json` settings (especially baudrate and port).
 - A clear description of the bug and steps to reproduce it.
-- If it's a hardware issue, note the LED status of the Dynamixel motors.
+- If it's a hardware issue, note the LED status of the Dynamixel motors (e.g., solid red, flashing red).
 
 ### 2. Suggesting Enhancements
 We are always open to new features, especially regarding:
@@ -53,16 +46,16 @@ Please open an Issue first to discuss your idea before investing time into writi
 ### 3. Pull Requests
 When you are ready to submit code:
 1. Fork the repository and create a new branch (`feature/your-feature-name` or `fix/bug-name`).
-2. Write clean, readable code. **Crucial:** Maintain the MVC architecture. Keep UI logic out of `hardware.py` and hardware polling out of `ui.py`!
-3. Add or update unit tests in `test_app.py` for any new logic you introduce.
-4. Run the full test suite locally.
-5. Open a Pull Request and describe exactly what changes you made, how you tested them, and why they are necessary.
+2. Write clean, readable code.
+3. Test your changes locally with the actual hardware connected.
+4. Open a Pull Request and describe exactly what changes you made, how you tested them, and why they are necessary.
 
 ## 🧠 Architecture Quick-Reference
-If you are modifying the core components, keep these boundaries in mind:
-- **`models.py`**: Thread-safe state classes. Do not put execution logic here, just data storage and synchronization locks.
-- **`ui.py`**: Tkinter frontend. Only reads from the thread-safe `state` and sends user commands via defined callbacks.
-- **`hardware.py`**: Runs in a dedicated background thread. Reads/writes to the serial bus asynchronously and pushes sensor data back to the `state`.
-- **`main.py`**: The central controller that initializes queues, threads, and binds the UI to the Hardware manager.
+The application is currently designed as a monolithic Python script (`motor_control.py`) to keep the deployment simple for students. If you are modifying the core components, keep these synchronization rules in mind:
+
+- **Asynchronous Polling Loop:** The hardware telemetry runs on a `Tkinter.after()` loop (`async_telemetry_scanner`). There is no multi-threading.
+- **The `serial_mutex`:** Because the U2D2 USB-Adapter and Dynamixel Protocol cannot handle concurrent reads/writes simultaneously, **every** function that communicates with the hardware must acquire the `self.serial_mutex`.
+- **`try...finally` Blocks:** Always wrap your serial communication logic in a `try...finally` block to ensure `self.serial_mutex = False` is executed even if a serial error or exception is thrown. Failing to release the mutex will permanently freeze the telemetry scanner!
+- **Rate-Limiting Tkinter Events:** Tkinter UI elements like `<Scale>` can fire hundreds of events per second. Never send serial commands directly on every tick. Use debounce mechanisms (like `_slider_send_jobs` or `_transmit_master_sync`) to throttle serial updates.
 
 Thank you for helping make RobotHand better!

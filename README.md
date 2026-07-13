@@ -25,7 +25,7 @@ python -m venv .venv
 pip install -r requirements.txt
 
 # 3. Applikation starten
-python main.py
+python motor_control.py
 ```
 
 Dann in der GUI: **"Connect"** klicken.
@@ -37,6 +37,8 @@ Damit die Software weiß, wo "offen" und wo "geschlossen" ist, müssen die Encod
 3. Bringe denselben Finger in die **geschlossene Greifposition**.
 4. Klicke auf **"Set Limit"**.
 5. Klicke oben rechts auf das **Disketten-Symbol**, um die Kalibrierung in die `calibration.json` zu speichern.
+
+**Intelligente Rekalibrierung:** Wenn du später einen Endpunkt nachjustierst, berechnet die Software automatisch die Verschiebung (Shift) und wendet diese sofort auf den gegenüberliegenden Punkt sowie auf alle deine gespeicherten Posen (`poses.json`) und Sequenzen (`sequences.json`) an!
 
 Der Positionsregler dieses Motors skaliert ab sofort exakt und linear von 0 % bis 100 %.
 
@@ -71,12 +73,13 @@ Die Steuerung wurde speziell konzipiert für:
 ### 1. Betriebsmodi
 * **Positionsmodus (Joint Mode):** Ermöglicht die gradgenaue Winkelregelung der Servos.
 * **Geschwindigkeitsmodus (Wheel Mode):** Erlaubt endlose Drehungen mit kontinuierlicher Geschwindigkeitsregelung (geeignet für Spindeln oder Seilwickler).
-* **Strombasierter Positionsmodus (Current-Based Position Mode):** Kombiniert Positionsregelung mit einer aktiven Strombegrenzung für ein nachgiebiges Greifverhalten.
+* **Strombasierter Positionsmodus (Current-Based Position Mode):** Kombiniert Positionsregelung mit einer aktiven Strombegrenzung für ein nachgiebiges Greifverhalten (Standard-Limit: 600 mA zum Schutz der Hardware).
 
 ### 2. Telemetrie & Hardwareschutz
-* **Echtzeit-Stromüberwachung:** Grafischer Plot der Motorströme.
+* **Echtzeit-Stromüberwachung:** Performanter, speichereffizienter grafischer Plot der Motorströme mittels `collections.deque` Ringpuffern.
 * **Temperaturüberwachung:** Visuelle Warnung bei Überhitzung (> 55 °C).
 * **Not-Aus (Emergency Stop):** Sofortiges Deaktivieren des Drehmoments aller Motoren.
+* **Flood-Protection & Beschleunigungsrampen:** Automatische Rate-Limiter und Profile Acceleration (ADDR 108) verhindern Spannungsabfälle (Voltage Sags) und heimliche Neustarts der Motor-Controller bei schnellen GUI-Eingaben.
 
 ### 3. State-Machine der Kontakterkennung
 Das System nutzt Flankenerkennung und Signalglättung, um festzustellen, ob ein Finger Widerstand spürt.
@@ -93,49 +96,44 @@ stateDiagram-v2
 
 ## 🏗️ Architektur & Code-Erklärung
 
-Um Latenzen in der GUI zu vermeiden, ist die App nach dem MVC-Muster (Model-View-Controller) aufgebaut und stark multithreaded.
+Die Applikation ist als monolithisches Skript (`motor_control.py`) aufgebaut. Um Latenzen in der GUI zu vermeiden und Serial-Port-Kollisionen zu verhindern, nutzt das Programm einen asynchronen Polling-Loop in Kombination mit einem Mutex (Lock).
 
-### 1. Threading-Workflow
+### 1. Asynchroner Polling-Workflow
 
 ```mermaid
 sequenceDiagram
-    participant UI as Main Thread (UI)
-    participant State as Thread-Safe State
-    participant HW as Background Thread (Hardware)
+    participant UI as Tkinter GUI Events
+    participant Mutex as serial_mutex
+    participant HW as Hardware Bus (U2D2)
+    participant Telemetry as async_telemetry_scanner()
     
-    Note over UI: Zeigt Slider & Graphen an
-    Note over HW: Wartet auf USB/Serial
+    Note over Telemetry: Läuft asynchron alle ~100ms
     
-    UI->>HW: User-Klick (via Command Queue)
-    Note over HW: Sendet Befehl an Motor
+    Telemetry->>Mutex: Check Lock
+    alt Lock ist frei (False)
+        Telemetry->>Mutex: Set Lock (True)
+        Telemetry->>HW: GroupSyncRead (Pos, Strom, Temp, Error)
+        HW-->>Telemetry: Batched Sensor Data
+        Telemetry->>UI: Aktualisiere Graphen & Labels
+        Telemetry->>Mutex: Release Lock (False)
+    else Lock ist belegt (True)
+        Telemetry->>Telemetry: Überspringe Zyklus, warte 50ms
+    end
     
-    Note over HW: Pollt permanent Telemetrie
-    HW->>State: Schreibt aktuelle Sensorwerte
-    State-->>UI: UI liest Daten & zeichnet neu
+    Note over UI: User zieht Slider extrem schnell
+    UI->>Mutex: Fordere Lock an, sende debounced SyncWrite
 ```
 
-**Start-Sequenz in `main.py`:**
-```python
-# Model (Thread-Safe Data)
-self.state = RobotState(config.motor_ids)
-
-# Background-Worker (Hardware)
-self.hardware = HardwareManager(self.state)
-self.hardware.start()
-
-# Main-Thread (GUI)
-self.ui = RobotHandUI(self.root, self)
-```
-
-### 2. Queue & Status-Synchronisation
-Damit die Threads sich nicht blockieren, kommunizieren sie nur über Queues (`self.cmd_queue`) und thread-sichere Variablen in `models.py`. Die GUI liest Daten nur aus dem RAM (`self.state`), während der Hardware-Thread diese RAM-Werte kontinuierlich aktualisiert.
+### 2. Batch Motor Commands (SyncRead & SyncWrite)
+Anstatt 5 Motoren sequentiell abzufragen (was zu extremen Latenzen führt), verwendet die Applikation das Protocol 2.0 `GroupSyncRead` und `GroupSyncWrite`. 
+Position, Strom, Temperatur und Hardware-Fehler von allen 5 Motoren werden in nur 4 Transaktionen pro Zyklus ausgelesen. Dies ermöglicht eine extrem stabile und performante Telemetrie.
 
 ---
 
 ## ⚙️ Konfiguration & Technische Limits
 
 ### Die `config.json`
-Zentrale Parameter werden hierüber gesteuert:
+Zentrale Parameter werden hierüber gesteuert (falls vorhanden, ansonsten direkt im Codekopf definiert):
 ```json
 {
   "hardware": {
@@ -151,8 +149,8 @@ Zentrale Parameter werden hierüber gesteuert:
 ```
 
 ### Leistungswerte & Limits
-* **Max. Polling-Frequenz:** ca. 50 Hz für die Telemetrie-Abfrage.
-* **Latenz:** ~20 ms pro Lesezyklus aller Motoren über den Bus.
+* **Max. Polling-Frequenz:** > 50 Hz für die Telemetrie-Abfrage dank `SyncRead`.
+* **Sicheres Stromlimit:** Standardmäßig bei 600 mA gekappt, um Hardware-Fehler ("Overload") der kleinen XL330-M288 Servos bei Blockade zu vermeiden.
 
 ---
 
@@ -161,19 +159,18 @@ Zentrale Parameter werden hierüber gesteuert:
 Häufige Probleme und deren schnelle Lösung:
 
 * **"Connection fails / Port error"**:
-  * Überprüfe, ob der COM-Port in der `config.json` stimmt (Windows: Gerätemanager prüfen, Linux: `ls /dev/ttyUSB*`).
+  * Überprüfe, ob der COM-Port im Code (`COM_PORT = "COM10"`) stimmt (Windows: Gerätemanager prüfen, Linux: `ls /dev/ttyUSB*`).
   * Stelle sicher, dass kein anderes Programm (z.B. Dynamixel Wizard) den Port belegt.
 * **"Motor bewegt sich nicht"**:
   * Überprüfe in der UI, ob **Torque** aktiviert ist.
-  * Prüfe, ob die Motor-LED rot blinkt (Hardware-Error wie Overload).
+  * Prüfe, ob die Warnmeldungen in der UI einen Hardware-Error (z.B. Overload) anzeigen. In diesem Fall auf das kleine Neu-Laden Icon (Reboot) neben dem Motor klicken.
 * **"UI friert ein oder stockt"**:
-  * Stelle sicher, dass die `baudrate` in der config mit der im Motor-EEPROM hinterlegten Baudrate übereinstimmt (meist 115200 oder 57600).
+  * Stelle sicher, dass die `baudrate` im Code mit der im Motor-EEPROM hinterlegten Baudrate übereinstimmt (meist 115200 oder 57600).
 
 ---
 
 ## ⚠️ Bekannte Limitierungen
 
-* **Single-Threaded Hardware Queue:** Es werden aktuell keine parallelen Servo-Befehle unterstützt, sie werden seriell über den Bus abgearbeitet.
 * **Positionsverschiebung bei manueller Drehung im ausgeschalteten Zustand:** Nach einem Power-Cycle (Strom aus der Hardware) stellt die Software den Nullpunkt über `calculate_reboot_offset` automatisch wieder her. Dies funktioniert zuverlässig, solange die Motoren im ausgeschalteten Zustand nicht manuell um mehr als 180 Grad (2048 Ticks) verdreht werden. In diesem Fall kann es zu einem Versatz um Vielfache von 360° kommen.
 * **Real-Time Garantien:** Da Python und Tkinter nicht echtzeitfähig sind, gibt es keine harten Timing-Garantien für exakte Mikrosekunden-Latenzen.
 
@@ -181,18 +178,12 @@ Häufige Probleme und deren schnelle Lösung:
 
 ## 📂 Projektstruktur
 
-* **`main.py`**: Controller (initialisiert UI und Hardware-Threads)
-* **`ui.py`**: Tkinter-GUI und Event-Handling
-* **`hardware.py`**: HardwareManager (serielle Kommunikation, Polling)
-* **`models.py`**: Thread-sichere Datenmodelle (`RobotState`, `MotorState`)
-* **`calibration.py`**: Encoder-Ticks ↔ Prozentwerte
-* **`sequences.py`**: Sequenzer für zeitgesteuerte Bewegungsabläufe
-* **`test_app.py`**: Unit-Tests
+* **`motor_control.py`**: Monolithisches Hauptskript (beinhaltet Tkinter-GUI, asynchrones Polling, State-Management und Hardware-Kommunikation via Dynamixel SDK).
+* **`requirements.txt`**: Benötigte Python-Pakete (z.B. `dynamixel-sdk`).
 
-**Konfigurationsdateien:**
-* `config.json` – Hardware (Port, Baudrate, Motor-IDs)
-* `calibration.json` – Kalibrierte Endanschläge
-* `motor_names.json` – GUI-Bezeichner
+**Automatisch generierte Dateien:**
+* `calibration.json` – Kalibrierte Endanschläge und Shifts
+* `motor_names.json` – GUI-Bezeichner (Alias) der Motoren
 * `poses.json` – Gespeicherte Handpositionen
 * `sequences.json` – Bewegungsabläufe
 
@@ -205,9 +196,13 @@ Häufige Probleme und deren schnelle Lösung:
 ```text
 PC (USB) <--> Robotis U2D2 <--> TTL-Bus <--> Motor #0 ... Motor #4
 ```
-3. Führe das `test_app.py` Skript aus, um sicherzustellen, dass die Abhängigkeiten sauber laufen:
+3. Python Dependencies installieren:
 ```bash
-python -m unittest test_app.py
+pip install -r requirements.txt
+```
+4. Applikation starten:
+```bash
+python motor_control.py
 ```
 
 ---

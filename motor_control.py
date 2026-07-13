@@ -189,6 +189,12 @@ class DynamixelSquadApp:
         self.load_poses_from_file()
         self._load_window_geometry()
         self.root.protocol("WM_DELETE_WINDOW", self.safe_quit)
+        
+        # Hotkeys
+        self.root.bind("<space>", self.toggle_play_sequence)
+        self.root.bind("<Escape>", lambda e: self.emergency_stop())
+        self.root.bind("r", self.stop_sequence)
+        self.root.bind("R", self.stop_sequence)
 
     def _build_ui(self):
         # --- THEME & STYLING ---
@@ -682,10 +688,10 @@ class DynamixelSquadApp:
         seq_play_row1 = ttk.Frame(seq_frame)
         seq_play_row1.pack(fill=tk.X, pady=(5, 2))
         
-        self.btn_play_seq = ttk.Button(seq_play_row1, text="▶ Start (0)", width=10,
+        self.btn_play_seq = ttk.Button(seq_play_row1, text="▶ Start [Space] (0)", width=15,
                                        command=self.play_sequence, style="Primary.TButton")
         self.btn_play_seq.pack(side=tk.LEFT, padx=1)
-        create_tooltip(self.btn_play_seq, "Startet das Abspielen des aktuellen Ablaufs.")
+        create_tooltip(self.btn_play_seq, "Startet/Pausiert den Ablauf. (Tastenkürzel: Leertaste. Reset: 'R', Nothalt: 'Esc')")
         
         self.lbl_seq_status = ttk.Label(seq_play_row1, text="Bereit", width=25,
                                         font=("Segoe UI", 9, "bold"), foreground=self.ACCENT_GREEN)
@@ -1424,7 +1430,7 @@ class DynamixelSquadApp:
             wv = frame.get("wait_val", 1000)
             sg = "🤏" if frame.get("state", {}).get("soft_grip_global", False) else ""
             self.seq_listbox.insert(tk.END, f"{i+1}. {name} ({wt}: {wv}ms) {sg}")
-        self.btn_play_seq.config(text=f"▶ Start ({len(self.sequence_frames)})")
+        self.btn_play_seq.config(text=f"▶ Start [Space] ({len(self.sequence_frames)})")
 
     def seq_move_up(self):
         idx = self.seq_listbox.curselection()
@@ -2112,6 +2118,22 @@ class DynamixelSquadApp:
             self.refresh_sequence_listbox()
             self.seq_unsaved_changes = False
 
+    def toggle_play_sequence(self, event=None):
+        if event and isinstance(event.widget, (tk.Entry, ttk.Entry, tk.Text)):
+            return
+        if self.is_playing:
+            self.stop_sequence()
+        else:
+            self.play_sequence()
+            
+    def stop_sequence(self, event=None):
+        if event and isinstance(event.widget, (tk.Entry, ttk.Entry, tk.Text)):
+            return
+        if self.is_playing:
+            self.is_playing = False
+            self.btn_play_seq.config(state=tk.NORMAL, text=f"▶ Start [Space] ({len(self.sequence_frames)})")
+            self.lbl_seq_status.config(text="Status: Gestoppt")
+
     def play_sequence(self):
         if not self.is_connected or len(self.sequence_frames) == 0: return
         if self.is_playing: return 
@@ -2127,7 +2149,7 @@ class DynamixelSquadApp:
         if not self.is_connected or step_index >= len(self.sequence_frames) or not self.is_playing:
             self.is_playing = False
             self.btn_play_seq.config(state=tk.NORMAL,
-                                     text=f"▶ Start ({len(self.sequence_frames)})")
+                                     text=f"▶ Start [Space] ({len(self.sequence_frames)})")
             self.lbl_seq_status.config(text="Status: Bereit")
             self.seq_listbox.selection_clear(0, tk.END)
             return
