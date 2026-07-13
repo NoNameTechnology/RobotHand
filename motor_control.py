@@ -18,6 +18,7 @@ ADDR_HARDWARE_ERROR_STATUS = 70
 ADDR_GOAL_CURRENT = 102
 ADDR_GOAL_VELOCITY = 104     
 ADDR_PROFILE_VELOCITY = 112  
+ADDR_PROFILE_ACCELERATION = 108
 ADDR_GOAL_POSITION = 116
 ADDR_PRESENT_CURRENT = 126
 ADDR_PRESENT_POSITION = 132
@@ -2194,6 +2195,7 @@ class DynamixelSquadApp:
                     
                     self.ui_current_sliders[dxl_id].config(state=tk.NORMAL)
                     self.packetHandler.write2ByteTxRx(self.portHandler, dxl_id, ADDR_GOAL_CURRENT, 600)
+                    self.packetHandler.write4ByteTxRx(self.portHandler, dxl_id, ADDR_PROFILE_ACCELERATION, 100)
                     self.calculate_reboot_offset(dxl_id)
 
                 self.on_master_vel_move(100) 
@@ -2512,6 +2514,7 @@ class DynamixelSquadApp:
             hardware_vel = int((master_vel_percent / 100.0) * 300) if master_vel_percent < 100 else 0
             if hardware_vel == 0 and master_vel_percent < 100: hardware_vel = 1
             self.packetHandler.write4ByteTxRx(self.portHandler, dxl_id, ADDR_PROFILE_VELOCITY, hardware_vel)
+            self.packetHandler.write4ByteTxRx(self.portHandler, dxl_id, ADDR_PROFILE_ACCELERATION, 100)
             self.calculate_reboot_offset(dxl_id)
             
         else:
