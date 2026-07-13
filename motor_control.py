@@ -631,7 +631,7 @@ class DynamixelSquadApp:
         seq_ctrl = ttk.Frame(seq_frame)
         seq_ctrl.pack(fill=tk.X, pady=(0, 5))
         
-        self.wait_type_var = tk.StringVar(value="Time")
+        # No wait type needed anymore
         
         ttk.Label(seq_ctrl, text="ms:").pack(side=tk.LEFT, padx=1)
         self.wait_val_var = tk.StringVar(value="1000")
@@ -1359,8 +1359,7 @@ class DynamixelSquadApp:
                 
                 # Apply custom velocity for this step
                 vel_pct = velocities.get(dxl_id_str, velocities.get(dxl_id, 100))
-                hardware_vel = int((vel_pct / 100.0) * 300) if vel_pct < 100 else 0
-                if hardware_vel == 0 and vel_pct < 100: hardware_vel = 1
+                hardware_vel = max(1, int((vel_pct / 100.0) * 300))
                 
                 param_vel = [
                     hardware_vel & 0xFF,
@@ -1391,12 +1390,11 @@ class DynamixelSquadApp:
         if has_pos:
             self.sync_write_pos.txPacket()
 
-    def get_wait_settings(self):
+    def get_wait_val(self):
         try:
-            val = int(self.wait_val_var.get())
+            return int(self.wait_val_var.get())
         except ValueError:
-            val = 1000
-        return self.wait_type_var.get(), val
+            return 1000
 
     def add_pose_to_sequence(self):
         name = self.cb_poses.get()
@@ -1405,8 +1403,8 @@ class DynamixelSquadApp:
             state = copy.deepcopy(self.saved_poses[name])
             state["limits"] = {str(did): "default" for did in MOTOR_IDS}
             state["soft_grip_motors"] = {str(did): "default" for did in MOTOR_IDS}
-            w_type, w_val = self.get_wait_settings()
-            frame_data = {"name": name, "state": state, "wait_type": w_type, "wait_val": w_val}
+            w_val = self.get_wait_val()
+            frame_data = {"name": name, "state": state, "wait_val": w_val}
             self.sequence_frames.append(frame_data)
             self._mark_seq_unsaved()
             self.refresh_sequence_listbox()
@@ -1416,8 +1414,8 @@ class DynamixelSquadApp:
         state = copy.deepcopy(self.get_current_state())
         state["limits"] = {str(did): "default" for did in MOTOR_IDS}
         state["soft_grip_motors"] = {str(did): "default" for did in MOTOR_IDS}
-        w_type, w_val = self.get_wait_settings()
-        frame_data = {"name": "Custom", "state": state, "wait_type": w_type, "wait_val": w_val}
+        w_val = self.get_wait_val()
+        frame_data = {"name": "Custom", "state": state, "wait_val": w_val}
         self.sequence_frames.append(frame_data)
         self._mark_seq_unsaved()
         self.refresh_sequence_listbox()
@@ -1426,10 +1424,9 @@ class DynamixelSquadApp:
         self.seq_listbox.delete(0, tk.END)
         for i, frame in enumerate(self.sequence_frames):
             name = frame.get("name", "Step")
-            wt = frame.get("wait_type", "Time")
             wv = frame.get("wait_val", 1000)
             sg = "🤏" if frame.get("state", {}).get("soft_grip_global", False) else ""
-            self.seq_listbox.insert(tk.END, f"{i+1}. {name} ({wt}: {wv}ms) {sg}")
+            self.seq_listbox.insert(tk.END, f"{i+1}. {name} ({wv}ms) {sg}")
         self.btn_play_seq.config(text=f"▶ Start [Space] ({len(self.sequence_frames)})")
 
     def seq_move_up(self):
@@ -1670,8 +1667,7 @@ class DynamixelSquadApp:
                         
                         # Apply test velocity
                         vel_val = vels[str(did)].get()
-                        hardware_vel = int((vel_val / 100.0) * 300) if vel_val < 100 else 0
-                        if hardware_vel == 0 and vel_val < 100: hardware_vel = 1
+                        hardware_vel = max(1, int((vel_val / 100.0) * 300))
                         self.packetHandler.write4ByteTxRx(self.portHandler, did, ADDR_PROFILE_VELOCITY, hardware_vel)
 
                         pos_val = poss[str(did)].get()
@@ -1816,7 +1812,8 @@ class DynamixelSquadApp:
                 wv = int(edit_wait_val.get())
             except ValueError:
                 wv = 1000
-            frame["wait_type"] = "Time"
+            if "wait_type" in frame:
+                del frame["wait_type"]
             frame["wait_val"] = wv
 
             # Update soft-grip global
@@ -2108,7 +2105,6 @@ class DynamixelSquadApp:
                     frames.append({
                         "name": "Legacy", 
                         "state": {"pose": f["pose"], "limits": {}},
-                        "wait_type": "Time",
                         "wait_val": f.get("delay", 1000)
                     })
                 else:
@@ -2161,49 +2157,55 @@ class DynamixelSquadApp:
         frame = self.sequence_frames[step_index]
         self.apply_state(frame["state"])
         
-        w_type = frame.get("wait_type", "Time")
         w_val = frame.get("wait_val", 1000)
+        active_ids = [int(i) for i in frame["state"]["pose"].keys()]
+        target_positions = {int(i): int(pos) for i, pos in frame["state"]["pose"].items()}
+        
+        start_t = time.time()
+        self._wait_for_motion(step_index, w_val, active_ids, target_positions, {}, 0, start_t)
 
-        if w_type == "Time":
+    def _wait_for_motion(self, step_index, w_val, active_ids, target_positions, prev_positions, stalled_cycles, start_t):
+        if not self.is_playing or not self.is_connected: return
+        
+        elapsed = (time.time() - start_t) * 1000
+        all_done = True
+        current_positions = {did: self.present_positions.get(did, 0) for did in active_ids}
+        
+        for did in active_ids:
+            target = target_positions.get(did, 0)
+            current = current_positions.get(did, 0)
+            
+            # 1. Ziel erreicht? (Toleranz: 50 Ticks)
+            if abs(current - target) <= 50:
+                continue
+                
+            # 2. Blockiert/Angehalten? (< 3 Ticks Bewegung in 100ms)
+            # Im allersten Zyklus ist prev_positions leer, also = current -> diff ist 0.
+            # Das ist ok, weil es 3 Zyklen braucht, um auszulösen.
+            diff = abs(current - prev_positions.get(did, current))
+            if diff > 3:
+                all_done = False
+                break
+                
+        if all_done:
+            stalled_cycles += 1
+        else:
+            stalled_cycles = 0
+            
+        # Nach 3 erfolgreichen Stillstands-Zyklen (300ms) oder Timeout (5000ms)
+        if stalled_cycles >= 3 or elapsed > 5000:
             self._wait_time_loop(step_index, w_val)
-        elif w_type == "Grasp":
-            active_ids = [int(i) for i in frame["state"]["pose"].keys()]
-            start_t = time.time()
-            self._check_grasp(step_index, active_ids, w_val, start_t)
+        else:
+            self.lbl_seq_status.config(text=f"Warte auf Bewegung... ({stalled_cycles}/3)")
+            self.root.after(100, self._wait_for_motion, step_index, w_val, active_ids, target_positions, current_positions, stalled_cycles, start_t)
 
     def _wait_time_loop(self, step_index, remaining_ms):
         if not self.is_playing or not self.is_connected: return
         if remaining_ms <= 0:
             self._play_step(step_index + 1)
         else:
-            self.lbl_seq_status.config(text=f"Time: {remaining_ms/1000.0:.1f}s")
+            self.lbl_seq_status.config(text=f"Timer: {remaining_ms/1000.0:.1f}s")
             self.root.after(100, self._wait_time_loop, step_index, remaining_ms - 100)
-
-    def _check_grasp(self, step_index, active_ids, timeout_ms, start_t):
-        """Verbesserte Grasp-Erkennung mit robuster Kontakterkennung (Feature 3)"""
-        if not self.is_playing or not self.is_connected: return
-        
-        elapsed = (time.time() - start_t) * 1000
-        rem = max(0, timeout_ms - elapsed)
-        self.lbl_seq_status.config(text=f"Grasp: Warte auf Kontakt ({rem/1000.0:.1f}s Timeout)")
-        
-        if elapsed > timeout_ms:
-            self._play_step(step_index + 1)
-            return
-            
-        # Nutze die verbesserte Kontakterkennung (Feature 3)
-        all_contact = True
-        for dxl_id in active_ids:
-            contact_state = self.detect_contact(dxl_id)
-            if contact_state != "contact":
-                all_contact = False
-                break
-                    
-        if all_contact and active_ids:
-            self.lbl_seq_status.config(text="Grasp: Kontakt erkannt! ✓")
-            self.root.after(100, self._play_step, step_index + 1)
-        else:
-            self.root.after(50, self._check_grasp, step_index, active_ids, timeout_ms, start_t)
 
     # =================================================================
     # --- HARDWARE BRIDGE ---
@@ -2567,8 +2569,7 @@ class DynamixelSquadApp:
                 self.packetHandler.write2ByteTxRx(self.portHandler, dxl_id, ADDR_GOAL_CURRENT, limit_val)
 
                 master_vel_percent = self.master_vel_var.get()
-                hardware_vel = int((master_vel_percent / 100.0) * 300) if master_vel_percent < 100 else 0
-                if hardware_vel == 0 and master_vel_percent < 100: hardware_vel = 1
+                hardware_vel = max(1, int((master_vel_percent / 100.0) * 300))
                 self.packetHandler.write4ByteTxRx(self.portHandler, dxl_id, ADDR_PROFILE_VELOCITY, hardware_vel)
                 self.packetHandler.write4ByteTxRx(self.portHandler, dxl_id, ADDR_PROFILE_ACCELERATION, 100)
                 self.calculate_reboot_offset(dxl_id)
