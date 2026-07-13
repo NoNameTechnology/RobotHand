@@ -3,8 +3,9 @@ import json
 import os
 import tkinter as tk
 from tkinter import messagebox, ttk, simpledialog
+from collections import deque
 # pyrefly: ignore [missing-import]
-from dynamixel_sdk import PortHandler, PacketHandler, COMM_SUCCESS # Official Robotis SDK
+from dynamixel_sdk import PortHandler, PacketHandler, COMM_SUCCESS, GroupSyncWrite, GroupSyncRead # Official Robotis SDK
 
 COM_PORT = "COM10"
 BAUDRATE = 115200
@@ -88,6 +89,7 @@ class DynamixelSquadApp:
         
         self.is_connected = False
         self.serial_mutex = False
+        self.last_master_val = 0.0
 
         # State Variables
         self.torque_vars = {}
@@ -95,15 +97,33 @@ class DynamixelSquadApp:
         self.sync_vars = {} 
         self.slider_vars = {}
         self.current_vars = {}
-        
-        self.graph_history = {dxl_id: [0]*50 for dxl_id in MOTOR_IDS}
-        self.limit_history = {dxl_id: [1750]*50 for dxl_id in MOTOR_IDS}
+        self.graph_history = {dxl_id: deque([0]*50, maxlen=50) for dxl_id in MOTOR_IDS}
+        self.limit_history = {dxl_id: deque([600]*50, maxlen=50) for dxl_id in MOTOR_IDS}
         self.present_positions = {dxl_id: 0 for dxl_id in MOTOR_IDS}
+        
+        # Group Sync Read objects
+        self.sync_read_pos = GroupSyncRead(self.portHandler, self.packetHandler, ADDR_PRESENT_POSITION, 4)
+        self.sync_read_curr = GroupSyncRead(self.portHandler, self.packetHandler, ADDR_PRESENT_CURRENT, 2)
+        self.sync_read_temp = GroupSyncRead(self.portHandler, self.packetHandler, ADDR_PRESENT_TEMPERATURE, 1)
+        self.sync_read_err = GroupSyncRead(self.portHandler, self.packetHandler, ADDR_HARDWARE_ERROR_STATUS, 1)
+        
+        for dxl_id in MOTOR_IDS:
+            self.sync_read_pos.addParam(dxl_id)
+            self.sync_read_curr.addParam(dxl_id)
+            self.sync_read_temp.addParam(dxl_id)
+            self.sync_read_err.addParam(dxl_id)
+            
+        # Group Sync Write objects
+        self.sync_write_pos = GroupSyncWrite(self.portHandler, self.packetHandler, ADDR_GOAL_POSITION, 4)
+        self.sync_write_current = GroupSyncWrite(self.portHandler, self.packetHandler, ADDR_GOAL_CURRENT, 2)
+        self.sync_write_profile_vel = GroupSyncWrite(self.portHandler, self.packetHandler, ADDR_PROFILE_VELOCITY, 4)
         
         # Calibration Limits
         self.calib_zero = {dxl_id: None for dxl_id in MOTOR_IDS}
         self.calib_limit = {dxl_id: None for dxl_id in MOTOR_IDS}
-
+        self.last_deleted_zero = {}
+        self.last_deleted_limit = {}
+  
         # Motor Names (Feature 9)
         self.motor_names = {dxl_id: f"Motor {dxl_id}" for dxl_id in MOTOR_IDS}
         
@@ -116,13 +136,13 @@ class DynamixelSquadApp:
         
         # Contact Detection (Feature 3)
         self.contact_states = {dxl_id: "none" for dxl_id in MOTOR_IDS}
-
+  
         # UI Elements
         self.ui_torque_checkboxes = {}
         self.motor_cards = {}
         self.reboot_offsets = {dxl_id: 0 for dxl_id in MOTOR_IDS}
         self.seq_default_sg_vars = {dxl_id: tk.BooleanVar(value=False) for dxl_id in MOTOR_IDS}
-        self.seq_default_ma_vars = {dxl_id: tk.IntVar(value=1750) for dxl_id in MOTOR_IDS}
+        self.seq_default_ma_vars = {dxl_id: tk.IntVar(value=600) for dxl_id in MOTOR_IDS}
         self.seq_unsaved_changes = False
         self.ui_mode_checkboxes = {} 
         self.ui_sync_checkboxes = {}
@@ -347,10 +367,11 @@ class DynamixelSquadApp:
         ttk.Label(master_frame, text="Master Position (%):").grid(row=0, column=0, sticky="w", padx=5)
         
         self.master_slider = ttk.Scale(
-            master_frame, from_=0, to=100, variable=self.master_slider_var,
+            master_frame, from_=-100, to=100, variable=self.master_slider_var,
             orient="horizontal", command=self.on_master_slider_move, state=tk.DISABLED
         )
         self.master_slider.grid(row=0, column=1, sticky="ew", padx=10, pady=5)
+        self.master_slider.bind("<ButtonRelease-1>", self.on_master_slider_release)
         create_tooltip(self.master_slider, "Steuert gleichzeitig alle Motoren, bei denen 'Sync' aktiviert ist.")
         master_frame.columnconfigure(1, weight=1)
         
@@ -533,7 +554,7 @@ class DynamixelSquadApp:
             lbl_m.pack(side=tk.LEFT, padx=(0, 2))
             create_tooltip(lbl_m, "Strombegrenzung für die Kontakterkennung (Greifkraft).")
             
-            c_var = tk.IntVar(value=1750)
+            c_var = tk.IntVar(value=600)
             self.current_vars[dxl_id] = c_var
             curr_slider = ttk.Scale(
                 row3, from_=0, to=1750, variable=c_var,
@@ -547,7 +568,7 @@ class DynamixelSquadApp:
             self.ui_current_sliders[dxl_id] = curr_slider
             create_tooltip(curr_slider, "Strombegrenzung für die Kontakterkennung (Greifkraft).")
             
-            lbl_curr = tk.Label(row3, text="1750", bg=self.PANEL_BG, fg=self.FG_COLOR,
+            lbl_curr = tk.Label(row3, text="600", bg=self.PANEL_BG, fg=self.FG_COLOR,
                                 font=("Segoe UI", 8), width=5, anchor="e")
             lbl_curr.pack(side=tk.LEFT, padx=2)
             self.current_labels[dxl_id] = lbl_curr
@@ -797,7 +818,7 @@ class DynamixelSquadApp:
             return "none"
         
         # Gleitender Durchschnitt über die letzten N Werte
-        window = history[-CONTACT_AVG_WINDOW:]
+        window = list(history)[-CONTACT_AVG_WINDOW:]
         avg_current = sum(abs(c) for c in window) / len(window)
         
         # Anstiegsflanken-Erkennung (Rate of Change über 3 Datenpunkte)
@@ -914,11 +935,41 @@ class DynamixelSquadApp:
             
         if point_type == "zero":
             self.reboot_offsets[dxl_id] = 0
+            
+            old_zero = self.calib_zero[dxl_id]
+            if old_zero is None:
+                old_zero = self.last_deleted_zero.get(dxl_id)
+            old_limit = self.calib_limit[dxl_id]
+            if old_limit is None:
+                old_limit = self.last_deleted_limit.get(dxl_id)
+                
             self.calib_zero[dxl_id] = pos
             self.ui_btn_zero[dxl_id].config(text=f"Z: {pos}")
+            
+            if old_zero is not None and old_limit is not None:
+                shift = pos - old_zero
+                new_limit = old_limit + shift
+                self.calib_limit[dxl_id] = new_limit
+                self.ui_btn_limit[dxl_id].config(text=f"L: {new_limit}")
+                self.apply_calibration_shift(dxl_id, shift)
+                
         elif point_type == "limit":
+            old_zero = self.calib_zero[dxl_id]
+            if old_zero is None:
+                old_zero = self.last_deleted_zero.get(dxl_id)
+            old_limit = self.calib_limit[dxl_id]
+            if old_limit is None:
+                old_limit = self.last_deleted_limit.get(dxl_id)
+                
             self.calib_limit[dxl_id] = pos
             self.ui_btn_limit[dxl_id].config(text=f"L: {pos}")
+            
+            if old_zero is not None and old_limit is not None:
+                shift = pos - old_limit
+                new_zero = old_zero + shift
+                self.calib_zero[dxl_id] = new_zero
+                self.ui_btn_zero[dxl_id].config(text=f"Z: {new_zero}")
+                self.apply_calibration_shift(dxl_id, shift)
             
         self.check_calibration_status(dxl_id)
         self.save_calibration(silent=True)
@@ -933,11 +984,59 @@ class DynamixelSquadApp:
 
     def delete_calibration(self, dxl_id, point_type):
         if point_type == "zero":
+            if self.calib_zero[dxl_id] is not None:
+                self.last_deleted_zero[dxl_id] = self.calib_zero[dxl_id]
             self.calib_zero[dxl_id] = None
             self.ui_btn_zero[dxl_id].config(text="Set Zero")
         elif point_type == "limit":
+            if self.calib_limit[dxl_id] is not None:
+                self.last_deleted_limit[dxl_id] = self.calib_limit[dxl_id]
             self.calib_limit[dxl_id] = None
             self.ui_btn_limit[dxl_id].config(text="Set Limit")
+        self.check_calibration_status(dxl_id)
+        self.save_calibration(silent=True)
+
+    def apply_calibration_shift(self, dxl_id, shift):
+        if shift == 0: return
+        dxl_str = str(dxl_id)
+        
+        # 1. Shift saved poses
+        for pose_name, pose_data in self.saved_poses.items():
+            pose = pose_data.get("pose", {})
+            if dxl_str in pose:
+                pose[dxl_str] = int(pose[dxl_str] + shift)
+        
+        try:
+            with open("poses.json", "w") as f:
+                json.dump(self.saved_poses, f)
+            print(f"Posen nach Kalibrierungsverschiebung ({shift} Ticks) gespeichert.")
+        except Exception as e:
+            print(f"Fehler beim Speichern der Posen nach Verschiebung: {e}")
+            
+        # 2. Shift currently loaded sequence frames
+        for frame in self.sequence_frames:
+            state = frame.get("state", {})
+            pose = state.get("pose", {})
+            if dxl_str in pose:
+                pose[dxl_str] = int(pose[dxl_str] + shift)
+                
+        # 3. Shift saved sequences
+        for seq_name, seq_data in self.saved_sequences.items():
+            frames = seq_data.get("frames", [])
+            for frame in frames:
+                state = frame.get("state", {})
+                pose = state.get("pose", {})
+                if dxl_str in pose:
+                    pose[dxl_str] = int(pose[dxl_str] + shift)
+                    
+        try:
+            with open("sequences.json", "w") as f:
+                json.dump(self.saved_sequences, f)
+            print(f"Abläufe nach Kalibrierungsverschiebung ({shift} Ticks) gespeichert.")
+        except Exception as e:
+            print(f"Fehler beim Speichern der Abläufe nach Verschiebung: {e}")
+            
+        self.refresh_sequence_listbox()
 
     def read_present_position(self, dxl_id):
         pos, res, err = self.packetHandler.read4ByteTxRx(self.portHandler, dxl_id, ADDR_PRESENT_POSITION)
@@ -1064,7 +1163,10 @@ class DynamixelSquadApp:
         active_ids = [did for did in MOTOR_IDS if self.ui_sync_checkboxes[did].instate(['selected'])]
         if not self.ensure_torque_enabled(active_ids): return
         
+        self.is_programmatic_change = True
         self.serial_mutex = True
+        self.sync_write_pos.clearParam()
+        has_targets = False
         
         for dxl_id in MOTOR_IDS:
             zero_pos = self.calib_zero[dxl_id]
@@ -1072,11 +1174,25 @@ class DynamixelSquadApp:
                     and zero_pos is not None and self.sync_vars[dxl_id].get()):
                 self.slider_vars[dxl_id].set(zero_pos)
                 self.soft_grip_frozen[dxl_id] = False  # Unfreeze bei Home
-                self.write_goal_position(dxl_id, zero_pos)
+                
+                offset = self.reboot_offsets.get(dxl_id, 0)
+                raw_pos = int(zero_pos - offset) & 0xFFFFFFFF
+                param_pos = [
+                    raw_pos & 0xFF,
+                    (raw_pos >> 8) & 0xFF,
+                    (raw_pos >> 16) & 0xFF,
+                    (raw_pos >> 24) & 0xFF
+                ]
+                self.sync_write_pos.addParam(dxl_id, param_pos)
+                has_targets = True
+                
+        if has_targets:
+            self.sync_write_pos.txPacket()
                 
         self.master_slider_var.set(0.0)
         self.lbl_master_pos.config(text="0.0 %")
         self.serial_mutex = False
+        self.is_programmatic_change = False
 
     def load_poses_from_file(self):
         if os.path.exists("poses.json"):
@@ -1148,6 +1264,7 @@ class DynamixelSquadApp:
             self.apply_state(self.saved_poses[name])
 
     def apply_state(self, state):
+        self.is_programmatic_change = True
         self.serial_mutex = True
         pose = state.get("pose", {})
         limits = state.get("limits", {})
@@ -1173,6 +1290,14 @@ class DynamixelSquadApp:
                 self.soft_grip_vars[dxl_id].set(resolved_sg)
                 self.soft_grip_frozen[dxl_id] = False  # Unfreeze bei neuer Pose
         
+        self.sync_write_current.clearParam()
+        self.sync_write_profile_vel.clearParam()
+        self.sync_write_pos.clearParam()
+        
+        has_curr = False
+        has_vel = False
+        has_pos = False
+        
         for dxl_id_str, target_pos in pose.items():
             dxl_id = int(dxl_id_str)
             if not self.mode_vars[dxl_id].get() and self.torque_vars[dxl_id].get():
@@ -1187,17 +1312,50 @@ class DynamixelSquadApp:
                         
                 self.current_vars[dxl_id].set(limit)
                 self.current_labels[dxl_id].config(text=f"{limit}")
-                self.packetHandler.write2ByteTxRx(self.portHandler, dxl_id, ADDR_GOAL_CURRENT, limit)
+                
+                param_curr = [
+                    limit & 0xFF,
+                    (limit >> 8) & 0xFF
+                ]
+                self.sync_write_current.addParam(dxl_id, param_curr)
+                has_curr = True
                 
                 # Apply custom velocity for this step
                 vel_pct = velocities.get(dxl_id_str, velocities.get(dxl_id, 100))
                 hardware_vel = int((vel_pct / 100.0) * 300) if vel_pct < 100 else 0
                 if hardware_vel == 0 and vel_pct < 100: hardware_vel = 1
-                self.packetHandler.write4ByteTxRx(self.portHandler, dxl_id, ADDR_PROFILE_VELOCITY, hardware_vel)
+                
+                param_vel = [
+                    hardware_vel & 0xFF,
+                    (hardware_vel >> 8) & 0xFF,
+                    (hardware_vel >> 16) & 0xFF,
+                    (hardware_vel >> 24) & 0xFF
+                ]
+                self.sync_write_profile_vel.addParam(dxl_id, param_vel)
+                has_vel = True
 
                 self.slider_vars[dxl_id].set(target_pos)
-                self.write_goal_position(dxl_id, target_pos)
+                
+                offset = self.reboot_offsets.get(dxl_id, 0)
+                raw_pos = int(target_pos - offset) & 0xFFFFFFFF
+                param_pos = [
+                    raw_pos & 0xFF,
+                    (raw_pos >> 8) & 0xFF,
+                    (raw_pos >> 16) & 0xFF,
+                    (raw_pos >> 24) & 0xFF
+                ]
+                self.sync_write_pos.addParam(dxl_id, param_pos)
+                has_pos = True
+                
+        if has_curr:
+            self.sync_write_current.txPacket()
+        if has_vel:
+            self.sync_write_profile_vel.txPacket()
+        if has_pos:
+            self.sync_write_pos.txPacket()
+            
         self.serial_mutex = False
+        self.is_programmatic_change = False
 
     def get_wait_settings(self):
         try:
@@ -1404,8 +1562,8 @@ class DynamixelSquadApp:
         # Global current slider
         tk.Label(sg_row, text="Alle mA:", bg=self.PANEL_BG, fg=self.SUBTEXT,
                  font=("Segoe UI", 9)).pack(side=tk.LEFT, padx=(20, 4))
-        global_current_var = tk.IntVar(value=1750)
-        global_current_lbl = tk.Label(sg_row, text="1750", bg=self.PANEL_BG, fg=self.ACCENT_PEACH,
+        global_current_var = tk.IntVar(value=600)
+        global_current_lbl = tk.Label(sg_row, text="600", bg=self.PANEL_BG, fg=self.ACCENT_PEACH,
                                       font=("Segoe UI", 9, "bold"), width=5)
         global_current_lbl.pack(side=tk.RIGHT, padx=4)
 
@@ -1502,7 +1660,7 @@ class DynamixelSquadApp:
             ma_def_var = tk.BooleanVar(value=is_def)
             edit_ma_is_default[dxl_str] = ma_def_var
             
-            slider_val = 1750 if is_def else int(cur_val)
+            slider_val = 600 if is_def else int(cur_val)
             cur_var = tk.IntVar(value=slider_val)
             edit_limits[dxl_str] = cur_var
 
@@ -1768,7 +1926,7 @@ class DynamixelSquadApp:
             chk.pack(side=tk.LEFT, padx=(10, 5))
 
             # Scale Label
-            lbl_ma = tk.Label(row, text="1750 mA", bg=self.PANEL_BG, fg=self.ACCENT_PEACH, font=("Segoe UI", 9, "bold"), width=8)
+            lbl_ma = tk.Label(row, text="600 mA", bg=self.PANEL_BG, fg=self.ACCENT_PEACH, font=("Segoe UI", 9, "bold"), width=8)
             
             # Slider
             def make_scale_cb(lbl=lbl_ma, var=self.seq_default_ma_vars[dxl_id]):
@@ -1888,7 +2046,7 @@ class DynamixelSquadApp:
             for var in self.seq_default_sg_vars.values():
                 var.set(False)
             for var in self.seq_default_ma_vars.values():
-                var.set(1750)
+                var.set(600)
             
             if isinstance(seq_data, dict):
                 raw_frames = seq_data.get("frames", [])
@@ -2035,7 +2193,7 @@ class DynamixelSquadApp:
                     self.packetHandler.write1ByteTxRx(self.portHandler, dxl_id, ADDR_OPERATING_MODE, mode_val)
                     
                     self.ui_current_sliders[dxl_id].config(state=tk.NORMAL)
-                    self.packetHandler.write2ByteTxRx(self.portHandler, dxl_id, ADDR_GOAL_CURRENT, 1750)
+                    self.packetHandler.write2ByteTxRx(self.portHandler, dxl_id, ADDR_GOAL_CURRENT, 600)
                     self.calculate_reboot_offset(dxl_id)
 
                 self.on_master_vel_move(100) 
@@ -2406,7 +2564,7 @@ class DynamixelSquadApp:
         if not self.is_connected or not self.torque_vars[dxl_id].get(): return
         if self.mode_vars[dxl_id].get():
             self.slider_vars[dxl_id].set(0)            
-            self.on_indiv_slider_move(dxl_id, 0)       
+            self.on_indiv_slider_move(dxl_id, 0)
 
     def on_current_slider_release(self, event, dxl_id):
         if not self.is_connected: return
@@ -2422,6 +2580,7 @@ class DynamixelSquadApp:
         self.serial_mutex = False
 
     def on_indiv_slider_move(self, dxl_id, val):
+        if getattr(self, 'is_programmatic_change', False): return
         if not self.is_connected or not self.torque_vars[dxl_id].get() or self.is_playing: return
         
         # Soft-Grip: Unfreeze wenn User manuell bewegt
@@ -2440,11 +2599,24 @@ class DynamixelSquadApp:
         self.serial_mutex = False
 
     def on_master_slider_move(self, val):
+        new_val = float(val)
+        if getattr(self, 'is_programmatic_change', False):
+            self.last_master_val = new_val
+            return
+
         percent = float(val) / 100.0
+        old_val = getattr(self, 'last_master_val', 0.0)
+        delta_pct = (new_val - old_val) / 100.0
+        self.last_master_val = new_val
+
         if not self.is_connected or self.is_playing: return
         
+        self.is_programmatic_change = True
         self.serial_mutex = True
-        self.lbl_master_pos.config(text=f"{float(val):.1f} %")
+        self.lbl_master_pos.config(text=f"{new_val:.1f} %")
+
+        self.sync_write_pos.clearParam()
+        has_targets = False
 
         for dxl_id in MOTOR_IDS:
             c_zero = self.calib_zero[dxl_id]
@@ -2452,14 +2624,41 @@ class DynamixelSquadApp:
             
             if (self.sync_vars[dxl_id].get() and not self.mode_vars[dxl_id].get()
                     and c_zero is not None and c_limit is not None):
-                target_pos = int(c_zero + (c_limit - c_zero) * percent)
+                current_pos = self.slider_vars[dxl_id].get()
+                range_ticks = c_limit - c_zero
+                target_pos = int(current_pos + delta_pct * range_ticks)
+                
+                min_pos = min(c_zero, c_limit)
+                max_pos = max(c_zero, c_limit)
+                target_pos = max(min_pos, min(max_pos, target_pos))
+
                 self.slider_vars[dxl_id].set(target_pos)
                 self.soft_grip_frozen[dxl_id] = False  # Unfreeze bei Master-Bewegung
                 
                 if self.torque_vars[dxl_id].get():
-                    self.write_goal_position(dxl_id, target_pos)
+                    offset = self.reboot_offsets.get(dxl_id, 0)
+                    raw_pos = int(target_pos - offset) & 0xFFFFFFFF
+                    param_pos = [
+                        raw_pos & 0xFF,
+                        (raw_pos >> 8) & 0xFF,
+                        (raw_pos >> 16) & 0xFF,
+                        (raw_pos >> 24) & 0xFF
+                    ]
+                    self.sync_write_pos.addParam(dxl_id, param_pos)
+                    has_targets = True
                     
+        if has_targets:
+            self.sync_write_pos.txPacket()
+
         self.serial_mutex = False
+        self.is_programmatic_change = False
+
+    def on_master_slider_release(self, event):
+        self.is_programmatic_change = True
+        self.master_slider_var.set(0.0)
+        self.lbl_master_pos.config(text="0.0 %")
+        self.last_master_val = 0.0
+        self.is_programmatic_change = False
 
     def on_master_vel_move(self, val):
         if not self.is_connected: return
@@ -2475,8 +2674,16 @@ class DynamixelSquadApp:
             if hardware_vel == 0: hardware_vel = 1
             self.lbl_master_vel.config(text=f"Vel: {percent} %")
 
+        self.sync_write_profile_vel.clearParam()
+        param_vel = [
+            hardware_vel & 0xFF,
+            (hardware_vel >> 8) & 0xFF,
+            (hardware_vel >> 16) & 0xFF,
+            (hardware_vel >> 24) & 0xFF
+        ]
         for dxl_id in MOTOR_IDS:
-            self.packetHandler.write4ByteTxRx(self.portHandler, dxl_id, ADDR_PROFILE_VELOCITY, hardware_vel)
+            self.sync_write_profile_vel.addParam(dxl_id, param_vel)
+        self.sync_write_profile_vel.txPacket()
         self.serial_mutex = False
 
     # =================================================================
@@ -2489,28 +2696,31 @@ class DynamixelSquadApp:
         if not self.serial_mutex:
             self.serial_mutex = True
             
+            # Group Sync Reads for all motors
+            self.sync_read_pos.txRxPacket()
+            self.sync_read_curr.txRxPacket()
+            self.sync_read_temp.txRxPacket()
+            self.sync_read_err.txRxPacket()
+            
             warning_messages = []
             
             for dxl_id in MOTOR_IDS:
-                # --- Position auslesen ---
-                pos, res, _ = self.read_present_position(dxl_id)
-                
                 # --- Strom auslesen ---
-                curr, res_c, _ = self.packetHandler.read2ByteTxRx(self.portHandler, dxl_id,
-                                                                   ADDR_PRESENT_CURRENT)
-                if res_c == COMM_SUCCESS:
+                res_c = COMM_SUCCESS
+                if self.sync_read_curr.isAvailable(dxl_id, ADDR_PRESENT_CURRENT, 2):
+                    curr = self.sync_read_curr.getData(dxl_id, ADDR_PRESENT_CURRENT, 2)
                     if curr > 32767: curr = curr - 65536
-                    self.graph_history[dxl_id].pop(0)
                     self.graph_history[dxl_id].append(curr)
                     
                     limit_ma = self.current_vars[dxl_id].get()
-                    self.limit_history[dxl_id].pop(0)
                     self.limit_history[dxl_id].append(limit_ma)
+                else:
+                    res_c = -1
                 
                 # --- Temperatur auslesen (Feature 4) ---
-                temp, res_temp, _ = self.packetHandler.read1ByteTxRx(self.portHandler, dxl_id,
-                                                                      ADDR_PRESENT_TEMPERATURE)
-                if res_temp == COMM_SUCCESS:
+                res_temp = COMM_SUCCESS
+                if self.sync_read_temp.isAvailable(dxl_id, ADDR_PRESENT_TEMPERATURE, 1):
+                    temp = self.sync_read_temp.getData(dxl_id, ADDR_PRESENT_TEMPERATURE, 1)
                     self.temp_labels[dxl_id].config(text=f"\ud83c\udf21 {temp}\u00b0C")
                     
                     if temp > TEMP_WARN:
@@ -2522,12 +2732,13 @@ class DynamixelSquadApp:
                     else:
                         self.temp_labels[dxl_id].config(fg=self.ACCENT_GREEN)
                 else:
+                    res_temp = -1
                     self.temp_labels[dxl_id].config(text="\ud83c\udf21 --\u00b0C", fg=self.SUBTEXT)
                 
                 # --- Hardware Error auslesen (Feature 4) ---
-                hw_err, res_err, _ = self.packetHandler.read1ByteTxRx(self.portHandler, dxl_id,
-                                                                       ADDR_HARDWARE_ERROR_STATUS)
-                if res_err == COMM_SUCCESS:
+                res_err = COMM_SUCCESS
+                if self.sync_read_err.isAvailable(dxl_id, ADDR_HARDWARE_ERROR_STATUS, 1):
+                    hw_err = self.sync_read_err.getData(dxl_id, ADDR_HARDWARE_ERROR_STATUS, 1)
                     if hw_err > 0:
                         self.error_labels[dxl_id].config(text="\u26a0", fg=self.ACCENT_RED)
                         name = self.motor_names.get(dxl_id, f"ID {dxl_id}")
@@ -2536,10 +2747,16 @@ class DynamixelSquadApp:
                             self.torque_vars[dxl_id].set(False)
                     else:
                         self.error_labels[dxl_id].config(text="\u2713", fg=self.ACCENT_GREEN)
+                else:
+                    res_err = -1
                 
                 # --- Position verarbeiten ---
-                if res == COMM_SUCCESS:
+                res = COMM_SUCCESS
+                if self.sync_read_pos.isAvailable(dxl_id, ADDR_PRESENT_POSITION, 4):
+                    pos = self.sync_read_pos.getData(dxl_id, ADDR_PRESENT_POSITION, 4)
                     if pos > 2147483647: pos = pos - 4294967296
+                    offset = self.reboot_offsets.get(dxl_id, 0)
+                    pos = pos + offset
                     self.present_positions[dxl_id] = pos
                         
                     if not self.mode_vars[dxl_id].get():
@@ -2547,9 +2764,8 @@ class DynamixelSquadApp:
                         if not self.torque_vars[dxl_id].get() and self.calib_zero[dxl_id] is not None:
                             self.slider_vars[dxl_id].set(pos)
                 else:
-                    self.readout_labels[dxl_id].config(text="[ NO ACK ]", fg=self.ACCENT_PEACH)
-                
-                time.sleep(0.002) 
+                    res = -1
+                    self.readout_labels[dxl_id].config(text="[ NO ACK ]", fg=self.ACCENT_PEACH) 
             
             # --- Kontakt-Indikatoren aktualisieren (Feature 3) ---
             self.update_contact_indicators()
