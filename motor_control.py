@@ -1189,13 +1189,32 @@ class DynamixelSquadApp:
         active_ids = [did for did in MOTOR_IDS if self.ui_sync_checkboxes[did].instate(['selected'])]
         if not self.ensure_torque_enabled(active_ids): return
         
+        # Soft-Grip ausschalten, damit die Motoren nicht beim Zurückfahren durch Stromspitzen blockieren
+        self.soft_grip_global.set(False)
+        self._update_soft_grip_global_button()
+        for dxl_id in MOTOR_IDS:
+            if dxl_id in self.soft_grip_vars:
+                self.soft_grip_vars[dxl_id].set(False)
+        
         self.is_programmatic_change = True
         self.serial_mutex = True
         try:
             self.sync_write_pos.clearParam()
+            self.sync_write_current.clearParam()
             has_targets = False
+            has_curr_targets = False
 
             for dxl_id in MOTOR_IDS:
+                # Strom-Limit zurücksetzen, da ein Skript es ggf. zu niedrig (z.B. 244mA) gelassen hat
+                if self.torque_vars[dxl_id].get():
+                    self.current_vars[dxl_id].set(600)
+                    self.ui_current_sliders[dxl_id].config(value=600)
+                    self.current_labels[dxl_id].config(text="600")
+                    
+                    param_curr = [600 & 0xFF, (600 >> 8) & 0xFF]
+                    self.sync_write_current.addParam(dxl_id, param_curr)
+                    has_curr_targets = True
+                    
                 zero_pos = self.calib_zero[dxl_id]
                 if (not self.mode_vars[dxl_id].get() and self.torque_vars[dxl_id].get()
                         and zero_pos is not None and self.sync_vars[dxl_id].get()):
@@ -1212,6 +1231,9 @@ class DynamixelSquadApp:
                     ]
                     self.sync_write_pos.addParam(dxl_id, param_pos)
                     has_targets = True
+
+            if has_curr_targets:
+                self.sync_write_current.txPacket()
 
             if has_targets:
                 self.sync_write_pos.txPacket()
