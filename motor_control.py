@@ -970,12 +970,13 @@ class DynamixelSquadApp:
             self.calib_zero[dxl_id] = pos
             self.ui_btn_zero[dxl_id].config(text=f"Z: {pos}")
             
-            if old_zero is not None and old_limit is not None:
+            if old_zero is not None and old_limit is not None and old_zero != pos:
                 shift = pos - old_zero
-                new_limit = old_limit + shift
-                self.calib_limit[dxl_id] = new_limit
-                self.ui_btn_limit[dxl_id].config(text=f"L: {new_limit}")
-                self.apply_calibration_shift(dxl_id, shift)
+                if messagebox.askyesno("Abstand beibehalten?", f"Soll die Limit-Position und alle Posen mitverschoben werden?\n(Ja = Abstand bleibt gleich, Nein = Abstand ändert sich)"):
+                    new_limit = old_limit + shift
+                    self.calib_limit[dxl_id] = new_limit
+                    self.ui_btn_limit[dxl_id].config(text=f"L: {new_limit}")
+                    self.apply_calibration_shift(dxl_id, shift)
                 
         elif point_type == "limit":
             old_zero = self.calib_zero[dxl_id]
@@ -988,12 +989,13 @@ class DynamixelSquadApp:
             self.calib_limit[dxl_id] = pos
             self.ui_btn_limit[dxl_id].config(text=f"L: {pos}")
             
-            if old_zero is not None and old_limit is not None:
+            if old_zero is not None and old_limit is not None and old_limit != pos:
                 shift = pos - old_limit
-                new_zero = old_zero + shift
-                self.calib_zero[dxl_id] = new_zero
-                self.ui_btn_zero[dxl_id].config(text=f"Z: {new_zero}")
-                self.apply_calibration_shift(dxl_id, shift)
+                if messagebox.askyesno("Abstand beibehalten?", f"Soll die Zero-Position und alle Posen mitverschoben werden?\n(Ja = Abstand bleibt gleich, Nein = Abstand ändert sich)"):
+                    new_zero = old_zero + shift
+                    self.calib_zero[dxl_id] = new_zero
+                    self.ui_btn_zero[dxl_id].config(text=f"Z: {new_zero}")
+                    self.apply_calibration_shift(dxl_id, shift)
             
         self.check_calibration_status(dxl_id)
         self.save_calibration(silent=True)
