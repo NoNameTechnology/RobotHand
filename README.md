@@ -70,18 +70,25 @@ Die Steuerung wurde speziell konzipiert für:
 
 ## ✨ Hauptmerkmale
 
-### 1. Betriebsmodi
+### 1. Betriebsmodi & Greifsteuerung
 * **Positionsmodus (Joint Mode):** Ermöglicht die gradgenaue Winkelregelung der Servos.
 * **Geschwindigkeitsmodus (Wheel Mode):** Erlaubt endlose Drehungen mit kontinuierlicher Geschwindigkeitsregelung (geeignet für Spindeln oder Seilwickler).
 * **Strombasierter Positionsmodus (Current-Based Position Mode):** Kombiniert Positionsregelung mit einer aktiven Strombegrenzung für ein nachgiebiges Greifverhalten (Standard-Limit: 600 mA zum Schutz der Hardware).
+* **Soft-Grip / Soft-Close Modus:** Automatische Kontakt- und Greiferkennung. Sobald ein Finger Widerstand spürt, friert die Position automatisch ein, um das Objekt sanft zu halten.
+* **Posen & Live-Strombegrenzung:** Beim manuellen Anfahren gespeicherter Posen ("▶ Go") werden stets die aktuellen GUI-Sliderwerte für das Stromlimit verwendet, um unbeabsichtigte Kraftbegrenzungen durch alte Posen-Werte zu vermeiden.
 
-### 2. Telemetrie & Hardwareschutz
-* **Echtzeit-Stromüberwachung:** Performanter, speichereffizienter grafischer Plot der Motorströme mittels `collections.deque` Ringpuffern.
-* **Temperaturüberwachung:** Visuelle Warnung bei Überhitzung (> 55 °C).
-* **Not-Aus (Emergency Stop):** Sofortiges Deaktivieren des Drehmoments aller Motoren.
-* **Flood-Protection & Beschleunigungsrampen:** Automatische Rate-Limiter und Profile Acceleration (ADDR 108) verhindern Spannungsabfälle (Voltage Sags) und heimliche Neustarts der Motor-Controller bei schnellen GUI-Eingaben.
+### 2. Telemetrie, Analyse & Hardwareschutz
+* **Echtzeit-Stromüberwachung & Export:** Performanter grafischer Plot der Motorströme. Daten können direkt als Excel-Tabelle (`.xls`), CSV (`.csv`) oder PNG-Grafik exportiert werden.
+* **Temperatur- & Fehlerüberwachung:** Visuelle Warnung bei Überhitzung (> 55 °C) und Hardware-Fehlern inklusive Ein-Klick-Motor-Reboot-Funktion.
+* **Not-Aus (Emergency Stop):** Sofortiges Deaktivieren des Drehmoments aller Motoren über GUI oder Tastenkürzel (`Esc`).
+* **Flood-Protection & Mutex-Watchdog:** Automatische Rate-Limiter und ein selbstheilender Mutex-Watchdog (setzt blockierte Locks nach ~1s automatisch zurück) verhindern Hänger und Überlastung der Hardware.
 
-### 3. State-Machine der Kontakterkennung
+### 3. Anpassbarkeit & Ergonomie
+* **Individuelle Motorbezeichnung:** Doppelklick auf einen Motornamen in der GUI erlaubt die freie Benennung der Finger (z.B. "Daumen", "Zeigefinger").
+* **Erweiterte Sequenzsteuerung:** Umfangreicher Schritt-Editor mit individueller Geschwindigkeits- und Kraftregelung pro Schritt sowie duplizierbaren/verschiebbaren Abläufen.
+* **Dark / Light Mode & Layout-Speicherung:** Umschaltbares Design mit automatischer Wiederherstellung der Fenstergeometrie.
+
+### 4. State-Machine der Kontakterkennung
 Das System nutzt Flankenerkennung und Signalglättung, um festzustellen, ob ein Finger Widerstand spürt.
 
 ```mermaid
@@ -96,28 +103,29 @@ stateDiagram-v2
 
 ## 🏗️ Architektur & Code-Erklärung
 
-Die Applikation ist als monolithisches Skript (`motor_control.py`) aufgebaut. Um Latenzen in der GUI zu vermeiden und Serial-Port-Kollisionen zu verhindern, nutzt das Programm einen asynchronen Polling-Loop in Kombination mit einem Mutex (Lock).
+Die Applikation ist als monolithisches Skript (`motor_control.py`) aufgebaut. Um Latenzen in der GUI zu vermeiden und Serial-Port-Kollisionen zu verhindern, nutzt das Programm einen asynchronen Polling-Loop in Kombination mit einem Mutex (Lock) und einem Watchdog.
 
-### 1. Asynchroner Polling-Workflow
+### 1. Asynchroner Polling-Workflow & Watchdog
 
 ```mermaid
 sequenceDiagram
     participant UI as Tkinter GUI Events
-    participant Mutex as serial_mutex
+    participant Mutex as serial_mutex & Watchdog
     participant HW as Hardware Bus (U2D2)
     participant Telemetry as async_telemetry_scanner()
     
     Note over Telemetry: Läuft asynchron alle ~100ms
     
-    Telemetry->>Mutex: Check Lock
+    Telemetry->>Mutex: Check Lock & Watchdog Cycles
     alt Lock ist frei (False)
         Telemetry->>Mutex: Set Lock (True)
         Telemetry->>HW: GroupSyncRead (Pos, Strom, Temp, Error)
         HW-->>Telemetry: Batched Sensor Data
         Telemetry->>UI: Aktualisiere Graphen & Labels
         Telemetry->>Mutex: Release Lock (False)
-    else Lock ist belegt (True)
-        Telemetry->>Telemetry: Überspringe Zyklus, warte 50ms
+    else Lock zu lange blockiert (>1s)
+        Mutex->>Mutex: Watchdog Reset Lock (False)
+        Telemetry->>HW: Erneuter Zugriffssversuch
     end
     
     Note over UI: User zieht Slider extrem schnell
@@ -163,8 +171,9 @@ Häufige Probleme und deren schnelle Lösung:
   * Stelle sicher, dass kein anderes Programm (z.B. Dynamixel Wizard) den Port belegt.
 * **"Motor bewegt sich nicht"**:
   * Überprüfe in der UI, ob **Torque** aktiviert ist.
-  * Prüfe, ob die Warnmeldungen in der UI einen Hardware-Error (z.B. Overload) anzeigen. In diesem Fall auf das kleine Neu-Laden Icon (Reboot) neben dem Motor klicken.
+  * Prüfe, ob die Warnmeldungen in der UI einen Hardware-Error (z.B. Overload) anzeigen. In diesem Fall auf die Schaltfläche **"Reboot"** neben dem Motor klicken.
 * **"UI friert ein oder stockt"**:
+  * Der integrierte Mutex-Watchdog setzt serielle Blockaden nach ~1s automatisch zurück.
   * Stelle sicher, dass die `baudrate` im Code mit der im Motor-EEPROM hinterlegten Baudrate übereinstimmt (meist 115200 oder 57600).
 
 ---
@@ -179,13 +188,14 @@ Häufige Probleme und deren schnelle Lösung:
 ## 📂 Projektstruktur
 
 * **`motor_control.py`**: Monolithisches Hauptskript (beinhaltet Tkinter-GUI, asynchrones Polling, State-Management und Hardware-Kommunikation via Dynamixel SDK).
-* **`requirements.txt`**: Benötigte Python-Pakete (z.B. `dynamixel-sdk`).
+* **`requirements.txt`**: Benötigte Python-Pakete (z.B. `dynamixel-sdk`, `pillow`).
 
 **Automatisch generierte Dateien:**
 * `calibration.json` – Kalibrierte Endanschläge und Shifts
 * `motor_names.json` – GUI-Bezeichner (Alias) der Motoren
 * `poses.json` – Gespeicherte Handpositionen
 * `sequences.json` – Bewegungsabläufe
+* `window_layout.json` – Fenstergeometrie und Theme-Einstellungen
 
 ---
 

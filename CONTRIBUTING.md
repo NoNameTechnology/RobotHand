@@ -54,8 +54,9 @@ When you are ready to submit code:
 The application is currently designed as a monolithic Python script (`motor_control.py`) to keep the deployment simple for students. If you are modifying the core components, keep these synchronization rules in mind:
 
 - **Asynchronous Polling Loop:** The hardware telemetry runs on a `Tkinter.after()` loop (`async_telemetry_scanner`). There is no multi-threading.
-- **The `serial_mutex`:** Because the U2D2 USB-Adapter and Dynamixel Protocol cannot handle concurrent reads/writes simultaneously, **every** function that communicates with the hardware must acquire the `self.serial_mutex`.
-- **`try...finally` Blocks:** Always wrap your serial communication logic in a `try...finally` block to ensure `self.serial_mutex = False` is executed even if a serial error or exception is thrown. Failing to release the mutex will permanently freeze the telemetry scanner!
-- **Rate-Limiting Tkinter Events:** Tkinter UI elements like `<Scale>` can fire hundreds of events per second. Never send serial commands directly on every tick. Use debounce mechanisms (like `_slider_send_jobs` or `_transmit_master_sync`) to throttle serial updates.
+- **The `serial_mutex` & Watchdog:** Because the U2D2 USB-Adapter and Dynamixel Protocol cannot handle concurrent reads/writes simultaneously, **every** function that communicates with the hardware must acquire the `self.serial_mutex`. A built-in watchdog automatically auto-releases the mutex if it is held for more than 10 consecutive telemetry cycles (~1 second), preventing permanent UI freezes from unhandled exceptions.
+- **`try...finally` Blocks:** Always wrap your serial communication logic in a `try...finally` block to ensure `self.serial_mutex = False` is executed even if a serial error or exception is thrown.
+- **Rate-Limiting Tkinter Events:** Tkinter UI elements like `<Scale>` fire events rapidly. Never send serial commands directly on every tick. Use debounce mechanisms (like `_pending_slider_targets`, `_slider_send_jobs`, or `_transmit_master_sync`) to throttle serial updates.
+- **Pose vs. Sequence Current Limits:** When executing direct pose moves via `go_to_selected_pose()`, always override stored limits with active live GUI slider values so that previous soft-grip operations do not permanently restrict motor current. Sequence playback manages step-specific current limits independently.
 
 Thank you for helping make RobotHand better!
