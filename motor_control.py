@@ -1313,7 +1313,14 @@ class DynamixelSquadApp:
         if name in self.saved_poses and self.is_connected:
             active_ids = [did for did in MOTOR_IDS if self.ui_sync_checkboxes[did].instate(['selected'])]
             if not self.ensure_torque_enabled(active_ids): return
-            self.apply_state(self.saved_poses[name])
+            import copy
+            state = copy.deepcopy(self.saved_poses[name])
+            # Use the current GUI current-limit slider values instead of the
+            # limits stored in the pose.  The saved limits may be stale (e.g.
+            # a low value from a previous soft-grip run), so the user's live
+            # GUI setting should always take precedence when going to a pose.
+            state["limits"] = {str(dxl_id): self.current_vars[dxl_id].get() for dxl_id in MOTOR_IDS}
+            self.apply_state(state)
 
     def apply_state(self, state):
         self.is_programmatic_change = True
